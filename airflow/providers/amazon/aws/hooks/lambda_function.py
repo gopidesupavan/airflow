@@ -106,6 +106,7 @@ class LambdaHook(AwsBaseHook):
         image_config: Any | None = None,
         code_signing_config_arn: str | None = None,
         architectures: list[str] | None = None,
+        logging_config: list[str] | None = None,
     ) -> dict:
         """
         Create a Lambda function.
@@ -181,7 +182,9 @@ class LambdaHook(AwsBaseHook):
             "ImageConfig": image_config,
             "CodeSigningConfigArn": code_signing_config_arn,
             "Architectures": architectures,
+            "LoggingConfig": logging_config
         }
+
         return self.conn.create_function(**trim_none_values(create_function_args))
 
     @staticmethod

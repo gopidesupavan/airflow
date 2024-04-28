@@ -108,7 +108,6 @@ class TestLambdaHook:
         hook.conn.create_function.reset_mock()
         hook.conn.create_function.return_value = {}
         hook.create_lambda(**hook_params)
-
         hook.conn.create_function.assert_called_once_with(**boto3_params)
 
     @pytest.mark.parametrize(

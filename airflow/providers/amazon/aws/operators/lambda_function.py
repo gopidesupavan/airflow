@@ -117,6 +117,7 @@ class LambdaCreateFunctionOperator(AwsBaseOperator[LambdaHook]):
             timeout=self.timeout,
             **self.config,
         )
+        self.log.debug("Lambda response: %r", response)
         self.log.info("Lambda response: %r", response)
 
         if self.deferrable:

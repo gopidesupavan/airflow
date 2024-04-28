@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -110,6 +111,32 @@ class TestLambdaCreateFunctionOperator:
 
         mock_hook_create_lambda.assert_called_once()
         mock_hook_conn.get_waiter.assert_called_once_with("function_active_v2")
+
+    @mock.patch.object(LambdaHook, "create_lambda")
+    @mock.patch.object(LambdaHook, "conn")
+    def test_create_lambda_with_optional_parameters_using_config_argument(self,
+                                                                          mock_hook_create_lambda):
+        config = {
+            "architectures": ["arm64"],
+            "LoggingConfig": {
+                "LogFormat": "Text",
+                "LogGroup": "/custom/log-group/"
+            }
+        }
+        operator = LambdaCreateFunctionOperator(
+            task_id="task_test",
+            function_name=FUNCTION_NAME,
+            role=ROLE_ARN,
+            code={
+                "ImageUri": IMAGE_URI,
+            },
+            config=config
+        )
+        operator.execute(None)
+
+        mock_hook_create_lambda.assert_called_once()
+        assert operator.config.get("logging_config") == config.get("logging_config")
+        assert operator.config.get("architectures") == config.get("architectures")
 
     @mock.patch.object(LambdaHook, "create_lambda")
     def test_create_lambda_deferrable(self, _):

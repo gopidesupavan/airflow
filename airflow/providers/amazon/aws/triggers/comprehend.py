@@ -27,7 +27,10 @@ from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 
 class ComprehendPiiEntitiesDetectionJobCompletedTrigger(AwsBaseWaiterTrigger):
     def __init__(
-        self, *, job_id: str, waiter_delay: int, waiter_max_attempts: int, aws_conn_id: str | None = None
+        self, *, job_id: str,
+        waiter_delay: int = 120,
+        waiter_max_attempts: int = 75,
+        aws_conn_id: str | None = "aws_default"
     ) -> None:
         super().__init__(
             serialized_fields={"job_id": job_id},

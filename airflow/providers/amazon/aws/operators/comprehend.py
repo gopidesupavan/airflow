@@ -142,7 +142,7 @@ class ComprehendStartPiiEntitiesDetectionJobOperator(ComprehendBaseOperator):
 
     def execute(self, context: Context) -> str:
         if self.start_pii_entities_kwargs.get("JobName", None) is None:
-            self.start_pii_entities_kwargs["JobName"] = f"{self.task_id}-{int(utcnow().timestamp())}"
+            self.start_pii_entities_kwargs["JobName"] = f"start_pii_entities_detection_job-{int(utcnow().timestamp())}"
 
         self.log.info(
             "Submitting start pii entities detection job '%s'.", self.start_pii_entities_kwargs["JobName"]
@@ -168,7 +168,7 @@ class ComprehendStartPiiEntitiesDetectionJobOperator(ComprehendBaseOperator):
                 ),
                 method_name="execute_complete",
             )
-        if self.wait_for_completion:
+        elif self.wait_for_completion:
             self.log.info(f"Waiting to {message_description}.")
             self.hook.get_waiter("pii_entities_detection_job_complete").wait(
                 JobId=job_id,

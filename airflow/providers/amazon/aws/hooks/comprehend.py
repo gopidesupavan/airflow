@@ -21,16 +21,17 @@ from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 class ComprehendHook(AwsBaseHook):
     """
-        Interact with AWS Comprehend.
+    Interact with AWS Comprehend.
 
-        Provide thin wrapper around :external+boto3:py:class:`boto3.client("comprehend") <Comprehend.Client>`.
+    Provide thin wrapper around :external+boto3:py:class:`boto3.client("comprehend") <Comprehend.Client>`.
 
-        Additional arguments (such as ``aws_conn_id``) may be specified and
-        are passed down to the underlying AwsBaseHook.
+    Additional arguments (such as ``aws_conn_id``) may be specified and
+    are passed down to the underlying AwsBaseHook.
 
-        .. seealso::
-            - :class:`airflow.providers.amazon.aws.hooks.base_aws.AwsBaseHook`
-        """
+    .. seealso::
+        - :class:`airflow.providers.amazon.aws.hooks.base_aws.AwsBaseHook`
+    """
+
     def __init__(self, *args, **kwargs) -> None:
         kwargs["client_type"] = "comprehend"
         super().__init__(*args, **kwargs)

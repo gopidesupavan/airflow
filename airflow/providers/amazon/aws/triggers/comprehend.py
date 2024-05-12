@@ -21,16 +21,26 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from airflow.providers.amazon.aws.hooks.base_aws import AwsGenericHook
 
-from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
+from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 
 
 class ComprehendPiiEntitiesDetectionJobCompletedTrigger(AwsBaseWaiterTrigger):
+    """
+    Trigger when a Comprehend pii entities detection job is complete.
+
+    :param job_id: The id of the Comprehend pii entities detection job.
+    :param waiter_delay: The amount of time in seconds to wait between attempts. (default: 120)
+    :param waiter_max_attempts: The maximum number of attempts to be made. (default: 75)
+    :param aws_conn_id: The Airflow connection used for AWS credentials.
+    """
     def __init__(
-        self, *, job_id: str,
+        self,
+        *,
+        job_id: str,
         waiter_delay: int = 120,
         waiter_max_attempts: int = 75,
-        aws_conn_id: str | None = "aws_default"
+        aws_conn_id: str | None = "aws_default",
     ) -> None:
         super().__init__(
             serialized_fields={"job_id": job_id},

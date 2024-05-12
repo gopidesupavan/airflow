@@ -14,15 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 from unittest import mock
+
 import boto3
 import botocore
 import pytest
 
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
-from airflow.providers.amazon.aws.sensors.comprehend import \
-    ComprehendStartPiiEntitiesDetectionJobCompletedSensor
+from airflow.providers.amazon.aws.sensors.comprehend import (
+    ComprehendStartPiiEntitiesDetectionJobCompletedSensor,
+)
 
 
 class TestComprehendCustomWaiters:

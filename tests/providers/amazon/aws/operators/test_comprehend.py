@@ -24,26 +24,24 @@ from moto import mock_aws
 
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 from airflow.providers.amazon.aws.operators.comprehend import (
+    ComprehendBaseOperator,
     ComprehendStartPiiEntitiesDetectionJobOperator,
-    ComprehendBaseOperator)
+)
 from airflow.utils.types import NOTSET
 
 if TYPE_CHECKING:
     from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 
 INPUT_DATA_CONFIG = {
-    'S3Uri': 's3://input-data-comprehend/sample_data.txt',
-    'InputFormat': 'ONE_DOC_PER_LINE',
+    "S3Uri": "s3://input-data-comprehend/sample_data.txt",
+    "InputFormat": "ONE_DOC_PER_LINE",
 }
-OUTPUT_DATA_CONFIG = output_data_config = {
-    'S3Uri': 's3://output-data-comprehend/redacted_output/'
-}
+OUTPUT_DATA_CONFIG = {"S3Uri": "s3://output-data-comprehend/redacted_output/"}
 LANGUAGE_CODE = "en"
 ROLE_ARN = "role_arn"
 
 
 class TestComprehendBaseOperator:
-
     @pytest.mark.parametrize("aws_conn_id", [None, NOTSET, "aws_test_conn"])
     @pytest.mark.parametrize("region_name", [None, NOTSET, "ca-central-1"])
     def test_initialize_comprehend_base_operator(self, aws_conn_id, region_name):
@@ -56,7 +54,7 @@ class TestComprehendBaseOperator:
             output_data_config=OUTPUT_DATA_CONFIG,
             language_code=LANGUAGE_CODE,
             data_access_role_arn=ROLE_ARN,
-            **op_kw
+            **op_kw,
         )
 
         assert comprehend_base_op.aws_conn_id == (aws_conn_id if aws_conn_id is not NOTSET else "aws_default")
@@ -69,7 +67,7 @@ class TestComprehendBaseOperator:
             input_data_config=INPUT_DATA_CONFIG,
             output_data_config=OUTPUT_DATA_CONFIG,
             language_code=LANGUAGE_CODE,
-            data_access_role_arn=ROLE_ARN
+            data_access_role_arn=ROLE_ARN,
         )
         mocked_hook = mock.MagicMock(name="MockHook")
         mocked_client = mock.MagicMock(name="MockClient")
@@ -105,7 +103,7 @@ class TestComprehendStartPiiEntitiesDetectionJobOperator:
             data_access_role_arn=ROLE_ARN,
             mode=self.MODE,
             language_code=LANGUAGE_CODE,
-            start_pii_entities_kwargs={"JobName": self.JOB_NAME}
+            start_pii_entities_kwargs={"JobName": self.JOB_NAME},
         )
         self.operator.defer = mock.MagicMock()
 
@@ -127,9 +125,9 @@ class TestComprehendStartPiiEntitiesDetectionJobOperator:
         ],
     )
     @mock.patch.object(ComprehendHook, "conn")
-    def test_start_pii_entities_detection_job_name_starts_with_service_name(self, comprehend_mock_conn,
-                                                                            start_pii_entities_kwargs
-                                                                            ):
+    def test_start_pii_entities_detection_job_name_starts_with_service_name(
+        self, comprehend_mock_conn, start_pii_entities_kwargs
+    ):
         comprehend_mock_conn.start_pii_entities_detection_job.return_value = {"JobId": self.JOB_ID}
         self.op = ComprehendStartPiiEntitiesDetectionJobOperator(
             task_id="start_pii_entities_detection_job",
@@ -138,7 +136,7 @@ class TestComprehendStartPiiEntitiesDetectionJobOperator:
             data_access_role_arn=ROLE_ARN,
             mode=self.MODE,
             language_code=LANGUAGE_CODE,
-            start_pii_entities_kwargs=start_pii_entities_kwargs
+            start_pii_entities_kwargs=start_pii_entities_kwargs,
         )
         self.op.execute({})
         assert self.op.start_pii_entities_kwargs.get("JobName").startswith(self.DEFAULT_JOB_NAME_STARTS_WITH)

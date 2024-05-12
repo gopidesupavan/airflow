@@ -100,11 +100,12 @@ def _fetch_from_ssm(key: str, test_name: str | None = None) -> str:
     :return: The value of the provided key from SSM
     """
     _test_name: str = test_name or _get_test_name()
-    hook = SsmHook(aws_conn_id=None)
+    hook = SsmHook(aws_conn_id="aws_default")
     value: str = ""
 
     try:
         value = json.loads(hook.get_parameter_value(_test_name))[key]
+        print(value)
     # Since a default value after the SSM check is allowed, these exceptions should not stop execution.
     except NoCredentialsError as e:
         log.info("No boto credentials found: %s", e)
@@ -248,7 +249,7 @@ def fetch_variable(
         does not exist
     :return: The value of the parameter.
     """
-
+    print(f"current test name {test_name}")
     value: str | None = os.getenv(key, _fetch_from_ssm(key, test_name)) or default_value
     if not optional and not value:
         raise ValueError(NO_VALUE_MSG.format(key=key))

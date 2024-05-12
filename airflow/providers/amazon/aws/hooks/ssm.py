@@ -51,6 +51,7 @@ class SsmHook(AwsBaseHook):
         """
         try:
             param = self.conn.get_parameter(Name=parameter, WithDecryption=True)["Parameter"]
+            print(f"current params retrieved {param}")
             value = param["Value"]
             if param["Type"] == "SecureString":
                 mask_secret(value)

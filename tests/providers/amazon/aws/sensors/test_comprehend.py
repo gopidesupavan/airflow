@@ -14,13 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 from unittest import mock
+
 import pytest
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
-from airflow.providers.amazon.aws.sensors.comprehend import \
-    ComprehendStartPiiEntitiesDetectionJobCompletedSensor
+from airflow.providers.amazon.aws.sensors.comprehend import (
+    ComprehendStartPiiEntitiesDetectionJobCompletedSensor,
+)
 
 
 class TestComprehendStartPiiEntitiesDetectionJobCompletedSensor:
@@ -58,15 +62,17 @@ class TestComprehendStartPiiEntitiesDetectionJobCompletedSensor:
     @pytest.mark.parametrize("state", SENSOR.SUCCESS_STATES)
     @mock.patch.object(ComprehendHook, "conn")
     def test_poke_success_state(self, mock_conn, state):
-        mock_conn.describe_pii_entities_detection_job.return_value = {"PiiEntitiesDetectionJobProperties":
-                                                                          {"JobStatus": state}}
+        mock_conn.describe_pii_entities_detection_job.return_value = {
+            "PiiEntitiesDetectionJobProperties": {"JobStatus": state}
+        }
         assert self.sensor.poke({}) is True
 
     @pytest.mark.parametrize("state", SENSOR.INTERMEDIATE_STATES)
     @mock.patch.object(ComprehendHook, "conn")
     def test_intermediate_state(self, mock_conn, state):
-        mock_conn.describe_pii_entities_detection_job.return_value = {"PiiEntitiesDetectionJobProperties":
-                                                                          {"JobStatus": state}}
+        mock_conn.describe_pii_entities_detection_job.return_value = {
+            "PiiEntitiesDetectionJobProperties": {"JobStatus": state}
+        }
         assert self.sensor.poke({}) is False
 
     @pytest.mark.parametrize(
@@ -79,8 +85,9 @@ class TestComprehendStartPiiEntitiesDetectionJobCompletedSensor:
     @pytest.mark.parametrize("state", SENSOR.FAILURE_STATES)
     @mock.patch.object(ComprehendHook, "conn")
     def test_poke_failure_states(self, mock_conn, state, soft_fail, expected_exception):
-        mock_conn.describe_pii_entities_detection_job.return_value = {"PiiEntitiesDetectionJobProperties":
-                                                                          {"JobStatus": state}}
+        mock_conn.describe_pii_entities_detection_job.return_value = {
+            "PiiEntitiesDetectionJobProperties": {"JobStatus": state}
+        }
         sensor = self.SENSOR(**self.default_op_kwargs, aws_conn_id=None, soft_fail=soft_fail)
 
         with pytest.raises(expected_exception, match=sensor.FAILURE_MESSAGE):

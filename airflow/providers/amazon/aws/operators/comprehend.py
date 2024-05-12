@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Sequence
-import boto3
 
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException
@@ -30,12 +29,14 @@ from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.utils.timezone import utcnow
 
 if TYPE_CHECKING:
+    import boto3
+
     from airflow.utils.context import Context
 
 
 class ComprehendBaseOperator(AwsBaseOperator[ComprehendHook]):
-    """This is the base operator for Comprehend Service operators (not supposed to be used directly in
-    DAGs).
+    """
+    This is the base operator for Comprehend Service operators (not supposed to be used directly in DAGs).
 
     :param input_data_config: The input properties for a PII entities detection job. (templated)
     :param output_data_config: Provides conﬁguration parameters for the output of PII entity detection
@@ -47,6 +48,7 @@ class ComprehendBaseOperator(AwsBaseOperator[ComprehendHook]):
         read access to your input data. (templated)
     :param language_code: The language of the input documents. (templated)
     """
+
     aws_hook_class = ComprehendHook
 
     template_fields: Sequence[str] = aws_template_fields(
@@ -81,7 +83,7 @@ class ComprehendBaseOperator(AwsBaseOperator[ComprehendHook]):
 
 class ComprehendStartPiiEntitiesDetectionJobOperator(ComprehendBaseOperator):
     """
-    Create a comprehend pii entities detection job for a collection of documents
+    Create a comprehend pii entities detection job for a collection of documents.
 
     More information regarding parameters of this operator can be found here
     https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/comprehend/client/start_pii_entities_detection_job

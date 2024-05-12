@@ -82,8 +82,7 @@ class ComprehendBaseSensor(AwsBaseSensor[ComprehendHook]):
 
 class ComprehendStartPiiEntitiesDetectionJobCompletedSensor(ComprehendBaseSensor):
     """
-    Poll the state of the pii entities detection job until it reaches a completed state; fails if the job
-    fails.
+    Poll the state of the pii entities detection job until it reaches a completed state; fails if the job fails.
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:
@@ -107,6 +106,7 @@ class ComprehendStartPiiEntitiesDetectionJobCompletedSensor(ComprehendBaseSensor
     :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
         https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
     """
+
     INTERMEDIATE_STATES: tuple[str, ...] = ("IN_PROGRESS",)
     FAILURE_STATES: tuple[str, ...] = ("FAILED", "STOP_REQUESTED", "STOPPED")
     SUCCESS_STATES: tuple[str, ...] = ("COMPLETED",)

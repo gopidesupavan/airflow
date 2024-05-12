@@ -24,10 +24,14 @@ from airflow.decorators import task_group
 from airflow.models.baseoperator import chain
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.amazon.aws.operators.comprehend import ComprehendStartPiiEntitiesDetectionJobOperator
-from airflow.providers.amazon.aws.operators.s3 import S3CreateBucketOperator, S3CreateObjectOperator, \
-    S3DeleteBucketOperator
-from airflow.providers.amazon.aws.sensors.comprehend import \
-    ComprehendStartPiiEntitiesDetectionJobCompletedSensor
+from airflow.providers.amazon.aws.operators.s3 import (
+    S3CreateBucketOperator,
+    S3CreateObjectOperator,
+    S3DeleteBucketOperator,
+)
+from airflow.providers.amazon.aws.sensors.comprehend import (
+    ComprehendStartPiiEntitiesDetectionJobCompletedSensor,
+)
 from airflow.utils.trigger_rule import TriggerRule
 from tests.system.providers.amazon.aws.utils import SystemTestContextBuilder
 
@@ -37,8 +41,13 @@ sys_test_context_task = SystemTestContextBuilder().add_variable(ROLE_ARN_KEY).bu
 DAG_ID = "example_comprehend"
 INPUT_S3_KEY_START_PII_ENTITIES_DETECTION_JOB = "start-pii-entities-detection-job/sample_data.txt"
 
-SAMPLE_DATA = {"username": "bob1234", "name": "Bob", "sex": "M", "address": "1773 Raymond Ville Suite 682",
-               "mail": "test@hotmail.com"}
+SAMPLE_DATA = {
+    "username": "bob1234",
+    "name": "Bob",
+    "sex": "M",
+    "address": "1773 Raymond Ville Suite 682",
+    "mail": "test@hotmail.com",
+}
 
 
 @task_group
@@ -51,25 +60,20 @@ def pii_entities_detection_job_workflow():
         mode="ONLY_REDACTION",
         data_access_role_arn=test_context[ROLE_ARN_KEY],
         language_code="en",
-        start_pii_entities_kwargs=pii_entities_kwargs
+        start_pii_entities_kwargs=pii_entities_kwargs,
     )
     # [END howto_operator_start_pii_entities_detection_job]
     start_pii_entities_detection_job.wait_for_completion = False
 
     # [START howto_sensor_start_pii_entities_detection_job]
     await_start_pii_entities_detection_job = ComprehendStartPiiEntitiesDetectionJobCompletedSensor(
-        task_id="await_start_pii_entities_detection_job",
-        job_id=start_pii_entities_detection_job.output
+        task_id="await_start_pii_entities_detection_job", job_id=start_pii_entities_detection_job.output
     )
     # [END howto_sensor_start_pii_entities_detection_job]
 
     end_workflow = EmptyOperator(task_id="end_workflow", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 
-    chain(
-        start_pii_entities_detection_job,
-        await_start_pii_entities_detection_job,
-        end_workflow
-    )
+    chain(start_pii_entities_detection_job, await_start_pii_entities_detection_job, end_workflow)
 
 
 with DAG(
@@ -86,15 +90,13 @@ with DAG(
         "S3Uri": f"s3://{bucket_name}/{INPUT_S3_KEY_START_PII_ENTITIES_DETECTION_JOB}",
         "InputFormat": "ONE_DOC_PER_LINE",
     }
-    output_data_configurations = {
-        "S3Uri": f"s3://{bucket_name}/redacted_output/"
-    }
+    output_data_configurations = {"S3Uri": f"s3://{bucket_name}/redacted_output/"}
     pii_entities_kwargs = {
         "RedactionConfig": {
             "PiiEntityTypes": ["NAME", "ADDRESS"],
-            "MaskMode": "REPLACE_WITH_PII_ENTITY_TYPE"
+            "MaskMode": "REPLACE_WITH_PII_ENTITY_TYPE",
         },
-        "JobName": f"PiiEntitiesDetectionJob-{env_id}"
+        "JobName": f"PiiEntitiesDetectionJob-{env_id}",
     }
 
     create_bucket = S3CreateBucketOperator(

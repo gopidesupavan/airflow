@@ -15,11 +15,11 @@
     specific language governing permissions and limitations
     under the License.
 
-==============
+=================
 Amazon Comprehend
-==============
+=================
 
-`Amazon Comprehend <https://aws.amazon.com/comprehend/>`__ Amazon Comprehend uses natural language processing (NLP) to
+`Amazon Comprehend <https://aws.amazon.com/comprehend/>`__ uses natural language processing (NLP) to
 extract insights about the content of documents. It develops insights by recognizing the entities, key phrases,
 language, sentiments, and other common elements in a document.
 
@@ -56,7 +56,7 @@ Sensors
 .. _howto/sensor:ComprehendStartPiiEntitiesDetectionJobCompletedSensor:
 
 Wait for an Amazon Comprehend pii entities detection job
-==============================================
+========================================================
 
 To wait on the state of an Amazon Comprehend pii entities detection job until it reaches a terminal state you can use
 :class:`~airflow.providers.amazon.aws.sensors.comprehend.ComprehendStartPiiEntitiesDetectionJobCompletedSensor`.

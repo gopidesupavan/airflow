@@ -39,7 +39,7 @@ class ComprehendBaseOperator(AwsBaseOperator[ComprehendHook]):
     This is the base operator for Comprehend Service operators (not supposed to be used directly in DAGs).
 
     :param input_data_config: The input properties for a PII entities detection job. (templated)
-    :param output_data_config: Provides conﬁguration parameters for the output of PII entity detection
+    :param output_data_config: Provides `conﬁguration` parameters for the output of PII entity detection
         jobs. (templated)
     :param mode: Specifies whether the output provides the locations (offsets) of PII  entities or a file in
         which PII entities are redacted. If you set the mode parameter to ONLY_REDACTION. In that case you
@@ -85,15 +85,12 @@ class ComprehendStartPiiEntitiesDetectionJobOperator(ComprehendBaseOperator):
     """
     Create a comprehend pii entities detection job for a collection of documents.
 
-    More information regarding parameters of this operator can be found here
-    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/comprehend/client/start_pii_entities_detection_job
-
     .. seealso::
         For more information on how to use this operator, take a look at the guide:
         :ref:`howto/operator:ComprehendStartPiiEntitiesDetectionJobOperator`
 
     :param input_data_config: The input properties for a PII entities detection job. (templated)
-    :param output_data_config: Provides conﬁguration parameters for the output of PII entity detection
+    :param output_data_config: Provides `conﬁguration` parameters for the output of PII entity detection
         jobs. (templated)
     :param mode: Specifies whether the output provides the locations (offsets) of PII  entities or a file in
         which PII entities are redacted. If you set the mode parameter to ONLY_REDACTION. In that case you
@@ -101,10 +98,10 @@ class ComprehendStartPiiEntitiesDetectionJobOperator(ComprehendBaseOperator):
     :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend
         read access to your input data. (templated)
     :param language_code: The language of the input documents. (templated)
-    :param start_pii_entities_kwargs: Any optional parameters to pass to the API. If JobName is not provided
+    :param start_pii_entities_kwargs: Any optional parameters to pass to the job. If JobName is not provided
         in start_pii_entities_kwargs, operator will create.
 
-    :param wait_for_completion: Whether to wait for cluster to stop. (default: True)
+    :param wait_for_completion: Whether to wait for job to stop. (default: True)
     :param waiter_delay: Time in seconds to wait between status checks. (default: 60)
     :param waiter_max_attempts: Maximum number of attempts to check for job completion. (default: 20)
     :param deferrable: If True, the operator will wait asynchronously for the job to stop.

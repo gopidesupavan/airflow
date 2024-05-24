@@ -22,8 +22,9 @@ from functools import cached_property
 from typing import Any, AsyncIterator
 
 from airflow.providers.amazon.aws.hooks.base_aws import AwsGenericHook
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
+from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.glue_catalog import GlueCatalogHook
+from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 from airflow.triggers.base import BaseTrigger, TriggerEvent
 
 
@@ -151,7 +152,7 @@ class GlueCatalogPartitionTrigger(BaseTrigger):
                     await asyncio.sleep(self.waiter_delay)
 
 
-class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseTrigger):
+class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseWaiterTrigger):
     """
     Trigger when a AWS Glue data quality evaluation run complete.
 
@@ -160,6 +161,7 @@ class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseTrigger):
     :param waiter_max_attempts: The maximum number of attempts to be made. (default: 75)
     :param aws_conn_id: The Airflow connection used for AWS credentials.
     """
+
     def __init__(
         self,
         run_id: str,

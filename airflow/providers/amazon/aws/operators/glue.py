@@ -25,13 +25,14 @@ from typing import TYPE_CHECKING, Any, Sequence
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
+from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
 from airflow.providers.amazon.aws.triggers.glue import GlueJobCompleteTrigger
-from airflow.providers.amazon.aws.triggers.glue_data_quality import \
-    GlueDataQualityRuleSetEvaluationRunCompleteTrigger
+from airflow.providers.amazon.aws.triggers.glue_data_quality import (
+    GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
+)
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 
 if TYPE_CHECKING:
@@ -273,11 +274,7 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
     """
 
     aws_hook_class = GlueDataQualityHook
-    template_fields: Sequence[str] = (
-        "name",
-        "ruleset",
-        "target_table"
-    )
+    template_fields: Sequence[str] = ("name", "ruleset", "target_table")
 
     template_fields_renderers = {
         "target_table": "json",
@@ -307,15 +304,11 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
 
     def validate_inputs(self):
         if not self.ruleset.startswith("Rules") or not self.ruleset.endswith("]"):
-            raise AttributeError(
-                "RuleSet must starts with Rules = [ and ends with ]"
-            )
+            raise AttributeError("RuleSet must starts with Rules = [ and ends with ]")
 
         if not self.update_rule_set:
             if not self.target_table.get("TableName") or not self.target_table.get("DatabaseName"):
-                raise AttributeError(
-                    "Target table must have TableName and DatabaseName"
-                )
+                raise AttributeError("Target table must have TableName and DatabaseName")
 
     def execute(self, context: Context):
         self.validate_inputs()
@@ -387,13 +380,10 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         "datasource",
         "role",
         "rule_set_names",
-        "rule_set_evaluation_run_kwargs"
+        "rule_set_evaluation_run_kwargs",
     )
 
-    template_fields_renderers = {
-        "datasource": "json",
-        "rule_set_evaluation_run_kwargs": "json"
-    }
+    template_fields_renderers = {"datasource": "json", "rule_set_evaluation_run_kwargs": "json"}
     ui_color = "#ededed"
 
     def __init__(
@@ -433,9 +423,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         glue_table = self.datasource.get("GlueTable", {})
 
         if not glue_table.get("DatabaseName") or not glue_table.get("TableName"):
-            raise AttributeError(
-                "DataSource glue table must have DatabaseName and TableName"
-            )
+            raise AttributeError("DataSource glue table must have DatabaseName and TableName")
 
         not_found_ruleset = []
 
@@ -457,8 +445,9 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
     def execute(self, context: Context) -> str:
         self.validate_inputs()
 
-        self.log.info("Starting AWS Glue data quality ruleset evaluation run for RulesetNames %s",
-                      self.rule_set_names)
+        self.log.info(
+            "Starting AWS Glue data quality ruleset evaluation run for RulesetNames %s", self.rule_set_names
+        )
 
         response = self.glue_data_quality_hook.conn.start_data_quality_ruleset_evaluation_run(
             DataSource=self.datasource,
@@ -466,7 +455,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
             NumberOfWorkers=self.number_of_workers,
             Timeout=self.timeout,
             RulesetNames=self.rule_set_names,
-            **self.rule_set_evaluation_run_kwargs
+            **self.rule_set_evaluation_run_kwargs,
         )
 
         run_id = response["RunId"]
@@ -495,8 +484,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
             self.log.info("AWS Glue data quality run completed RunId: %s", run_id)
 
         else:
-            self.log.info("AWS glue data quality ruleset evaluation run runId: %s",
-                          run_id)
+            self.log.info("AWS glue data quality ruleset evaluation run runId: %s", run_id)
 
         return run_id
 

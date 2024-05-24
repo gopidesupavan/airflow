@@ -29,8 +29,7 @@ from moto import mock_aws
 
 from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
-from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook
+from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.logs import AwsLogsHook
 
 if TYPE_CHECKING:
@@ -487,10 +486,7 @@ class TestGlueDataQualityHook:
     RULE_SET_CONFIG = {
         "Name": "test_rule",
         "Ruleset": 'Rules=[ColumnLength "review_id" = 15]',
-        "TargetTable": {
-            "DatabaseName": "test_db",
-            "TableName": "test_table"
-        },
+        "TargetTable": {"DatabaseName": "test_db", "TableName": "test_table"},
         "Description": "test rule",
     }
 
@@ -535,8 +531,10 @@ class TestGlueDataQualityHook:
     def test_create_glue_data_quality_ruleset_should_fail_if_ruleset_already_exists(self, mock_conn):
         mock_conn.get_data_quality_ruleset.return_value = {"Name": self.RULE_SET_NAME}
 
-        with pytest.raises(AirflowException,
-                           match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} already exists with same name"):
+        with pytest.raises(
+            AirflowException,
+            match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} already exists with same name",
+        ):
             hook = GlueDataQualityHook(aws_conn_id=None)
             hook.create_glue_data_quality_ruleset(self.RULE_SET_CONFIG)
 
@@ -557,8 +555,9 @@ class TestGlueDataQualityHook:
         mock_conn.exceptions.EntityNotFoundException = RuleSetNotFoundException
         mock_conn.get_data_quality_ruleset.side_effect = RuleSetNotFoundException()
 
-        with pytest.raises(AirflowException,
-                           match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} not exists to update"):
+        with pytest.raises(
+            AirflowException, match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} not exists to update"
+        ):
             hook = GlueDataQualityHook(aws_conn_id=None)
             hook.update_glue_data_quality_ruleset(self.RULE_SET_CONFIG)
 
@@ -568,8 +567,7 @@ class TestGlueDataQualityHook:
     def test_validate_evaluation_results(self, mock_conn, caplog):
         hook = GlueDataQualityHook(show_results=False)
 
-        response_evaluation_run = {"RunId": self.RUN_ID,
-                                   "ResultIds": ["resultId1"]}
+        response_evaluation_run = {"RunId": self.RUN_ID, "ResultIds": ["resultId1"]}
 
         response_batch_result = {
             "RunId": self.RUN_ID,
@@ -583,10 +581,11 @@ class TestGlueDataQualityHook:
                             "Name": "Rule_1",
                             "Description": "RowCount between 150000 and 600000",
                             "EvaluatedMetrics": {"Dataset.*.RowCount": 300000.0},
-                            "Result": "PASS"
+                            "Result": "PASS",
                         }
-                    ]
-                }]
+                    ],
+                }
+            ],
         }
         mock_conn.get_data_quality_ruleset_evaluation_run.return_value = response_evaluation_run
 
@@ -596,13 +595,12 @@ class TestGlueDataQualityHook:
             caplog.clear()
             hook.validate_evaluation_run_results(run_id=self.RUN_ID)
 
-        mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(response_evaluation_run)
+        mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(RunId=self.RUN_ID)
+        mock_conn.batch_get_data_quality_result.assert_called_once_with(
+            ResultIds=response_evaluation_run["ResultIds"]
+        )
 
-        mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(response_batch_result)
-
-        assert caplog.messages == [
-            "AWS Glue Data quality evaluation run, total number of rules failed 0"
-        ]
+        assert caplog.messages == ["AWS Glue Data quality evaluation run, total number of rules failed 0"]
 
     @mock.patch.object(AwsBaseHook, "conn")
     def test_validate_evaluation_results_should_fail_when_any_rules_failed(self, mock_conn, caplog):
@@ -620,22 +618,24 @@ class TestGlueDataQualityHook:
                             "Name": "Rule_1",
                             "Description": "RowCount between 150000 and 600000",
                             "EvaluatedMetrics": {"Dataset.*.RowCount": 300000.0},
-                            "Result": "PASS"
+                            "Result": "PASS",
                         },
                         {
                             "Name": "Rule_2",
                             "Description": "ColumnLength 'marketplace' between 1 and 2",
-                            "EvaluationMessage": 'Value: 9.0 does not meet the constraint requirement!',
+                            "EvaluationMessage": "Value: 9.0 does not meet the constraint requirement!",
                             "Result": "FAIL",
-                            "EvaluatedMetrics": {"Column.marketplace.MaximumLength": 9.0,
-                                                 "Column.marketplace.MinimumLength": 2.0}
-                        }
-                    ]
-                }]
+                            "EvaluatedMetrics": {
+                                "Column.marketplace.MaximumLength": 9.0,
+                                "Column.marketplace.MinimumLength": 2.0,
+                            },
+                        },
+                    ],
+                }
+            ],
         }
 
-        response_evaluation_run = {"RunId": self.RUN_ID,
-                                   "ResultIds": ["resultId1"]}
+        response_evaluation_run = {"RunId": self.RUN_ID, "ResultIds": ["resultId1"]}
 
         mock_conn.get_data_quality_ruleset_evaluation_run.return_value = response_evaluation_run
 
@@ -644,18 +644,18 @@ class TestGlueDataQualityHook:
         with caplog.at_level(logging.INFO, logger=hook.log.name):
             caplog.clear()
 
-            with pytest.raises(AirflowException,
-                               match="AWS Glue Data quality evaluation run failed for one or more rules"):
+            with pytest.raises(
+                AirflowException, match="AWS Glue Data quality evaluation run failed for one or more rules"
+            ):
                 hook.validate_evaluation_run_results(run_id=self.RUN_ID)
                 mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(
-                    response_evaluation_run)
+                    RunId=self.RUN_ID
+                )
+                mock_conn.batch_get_data_quality_result.assert_called_once_with(
+                    ResultIds=response_evaluation_run["ResultIds"]
+                )
 
-                mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(
-                    response_batch_result)
-
-        assert caplog.messages == [
-            "AWS Glue Data quality evaluation run, total number of rules failed 1"
-        ]
+        assert caplog.messages == ["AWS Glue Data quality evaluation run, total number of rules failed 1"]
 
     def test_display_results(self, caplog):
         hook = GlueDataQualityHook()
@@ -670,17 +670,19 @@ class TestGlueDataQualityHook:
                     "Name": "Rule_1",
                     "Description": "RowCount between 150000 and 600000",
                     "EvaluatedMetrics": {"Dataset.*.RowCount": 300000.0},
-                    "Result": "PASS"
+                    "Result": "PASS",
                 },
                 {
                     "Name": "Rule_2",
                     "Description": "ColumnLength 'marketplace' between 1 and 2",
-                    "EvaluationMessage": 'Value: 9.0 does not meet the constraint requirement!',
+                    "EvaluationMessage": "Value: 9.0 does not meet the constraint requirement!",
                     "Result": "FAIL",
-                    "EvaluatedMetrics": {"Column.marketplace.MaximumLength": 9.0,
-                                         "Column.marketplace.MinimumLength": 2.0}
-                }
-            ]
+                    "EvaluatedMetrics": {
+                        "Column.marketplace.MaximumLength": 9.0,
+                        "Column.marketplace.MinimumLength": 2.0,
+                    },
+                },
+            ],
         }
 
         with caplog.at_level(logging.INFO, logger=hook.log.name):

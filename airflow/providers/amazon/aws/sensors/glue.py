@@ -137,22 +137,22 @@ class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
         self.errored_states: list[str] = ["FAILED", "STOPPED", "TIMEOUT"]
 
     def poke(self, context: Context):
-
         self.log.info("Poking for AWS Glue data quality run RunId: %s", self.run_id)
 
         response = self.hook.conn.get_data_quality_ruleset_evaluation_run(RunId=self.run_id)
 
         if response.get("State") in self.success_states:
-            results = self.hook.conn.batch_get_data_quality_result(
-                ResultIds=response["ResultIds"]
+            results = self.hook.conn.batch_get_data_quality_result(ResultIds=response["ResultIds"])
+            self.log.info(
+                "Exiting AWS Glue data quality run RunId: %s Run State: %s", self.run_id, response["State"]
             )
-            self.log.info("Exiting AWS Glue data quality run RunId: %s Run State: %s", self.run_id,
-                          response["State"])
             self.hook.validate_evaluation_results(results)
             return True
         elif response.get("State") in self.errored_states:
-            job_error_message = f"Exiting AWS Glue data quality run RunId: {self.run_id} Run State: {response['State']} " \
-                                f"with: {response['ErrorString']}"
+            job_error_message = (
+                f"Exiting AWS Glue data quality run RunId: {self.run_id} Run State: {response['State']} "
+                f"with: {response['ErrorString']}"
+            )
             self.log.info(job_error_message)
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
             if self.soft_fail:

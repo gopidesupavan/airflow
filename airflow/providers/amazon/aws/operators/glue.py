@@ -25,10 +25,13 @@ from typing import TYPE_CHECKING, Any, Sequence
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook
+from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
+from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
 from airflow.providers.amazon.aws.triggers.glue import GlueJobCompleteTrigger
+from airflow.providers.amazon.aws.triggers.glue_data_quality import \
+    GlueDataQualityRuleSetEvaluationRunCompleteTrigger
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 
 if TYPE_CHECKING:
@@ -239,3 +242,270 @@ class GlueJobOperator(BaseOperator):
             )
             if not response["SuccessfulSubmissions"]:
                 self.log.error("Failed to stop AWS Glue Job: %s. Run Id: %s", self.job_name, self._job_run_id)
+
+
+class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
+    """
+    Creates a data quality ruleset with DQDL rules applied to a specified Glue table.
+
+    .. seealso::
+        For more information on how to use this operator, take a look at the guide:
+        :ref:`howto/operator:GlueDataQualityOperator`
+
+    :param name: A unique name for the data quality ruleset.
+    :param ruleset: A Data Quality Definition Language (DQDL) ruleset.
+        For more information, see the Glue developer guide.
+    :param target_table: A target table associated with the data quality ruleset.
+    :param description: A description of the data quality ruleset.
+    :param update_rule_set: To update existing ruleset, Set this flag to True (default: False)
+    :param data_quality_ruleset_kwargs: Extra arguments for RuleSet
+
+    :param aws_conn_id: The Airflow connection used for AWS credentials.
+        If this is ``None`` or empty then the default boto3 behaviour is used. If
+        running Airflow in a distributed manner and aws_conn_id is None or
+        empty, then default boto3 configuration would be used (and must be
+        maintained on each worker node).
+    :param region_name: AWS region_name. If not specified then the default boto3 behaviour is used.
+    :param verify: Whether or not to verify SSL certificates. See:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+    :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
+        https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
+    """
+
+    aws_hook_class = GlueDataQualityHook
+    template_fields: Sequence[str] = (
+        "name",
+        "ruleset",
+        "target_table"
+    )
+
+    template_fields_renderers = {
+        "target_table": "json",
+    }
+    ui_color = "#ededed"
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        ruleset: str,
+        target_table: dict | None = None,
+        description: str = "AWS Glue Data Quality Rule Set With Airflow",
+        update_rule_set: bool = False,
+        data_quality_ruleset_kwargs: dict | None = None,
+        aws_conn_id: str | None = "aws_default",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.name = name
+        self.ruleset = ruleset.strip()
+        self.target_table = target_table or {}
+        self.description = description
+        self.update_rule_set = update_rule_set
+        self.data_quality_ruleset_kwargs = data_quality_ruleset_kwargs or {}
+        self.aws_conn_id = aws_conn_id
+
+    def validate_inputs(self):
+        if not self.ruleset.startswith("Rules") or not self.ruleset.endswith("]"):
+            raise AttributeError(
+                "RuleSet must starts with Rules = [ and ends with ]"
+            )
+
+        if not self.update_rule_set:
+            if not self.target_table.get("TableName") or not self.target_table.get("DatabaseName"):
+                raise AttributeError(
+                    "Target table must have TableName and DatabaseName"
+                )
+
+    def execute(self, context: Context):
+        self.validate_inputs()
+
+        config = self._prepare_data_quality_ruleset_config()
+
+        if self.update_rule_set:
+            self.hook.update_glue_data_quality_ruleset(config)
+            self.log.info("AWS Glue data quality ruleset updated successfully")
+        else:
+            self.hook.create_glue_data_quality_ruleset(config)
+            self.log.info("AWS Glue data quality ruleset created successfully")
+
+    def _prepare_data_quality_ruleset_config(self):
+        config = {
+            "Name": self.name,
+            "Ruleset": self.ruleset,
+            "Description": self.description,
+            **self.data_quality_ruleset_kwargs,
+        }
+
+        if not self.update_rule_set:
+            config["TargetTable"] = self.target_table
+
+        return config
+
+
+class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualityHook]):
+    """
+    Once you have a ruleset definition (either recommended or your own),
+    you call this operation to evaluate the ruleset against a data source (Glue table)
+
+    .. seealso::
+        For more information on how to use this operator, take a look at the guide:
+        :ref:`howto/operator:GlueDataQualityRuleSetEvaluationRunOperator`
+
+    :param datasource: The data source (Glue table) associated with this run. (templated)
+    :param role: IAM role supplied for job execution. (templated)
+    :param rule_set_names: A list of ruleset names for evaluation. (templated)
+    :param number_of_workers: The number of G.1X workers to be used in the run. (default: 5).
+    :param timeout: The timeout for a run in minutes. This is the maximum time that a run can consume resources
+        before it is terminated and enters TIMEOUT status. (default: 2,880)
+    :param fail_on_result_validation: Validates all the ruleset rules evaluation run results,
+        If any of the rule status is Fail or Error, Then the evaluation run should be considered failed (default: False).
+    :param show_results: Displays all the ruleset rules evaluation run results (default: True).
+    :param rule_set_evaluation_run_kwargs: Extra arguments for evaluation run. (templated)
+    :param wait_for_completion: Whether to wait for job to stop. (default: True)
+    :param waiter_delay: Time in seconds to wait between status checks. (default: 60)
+    :param waiter_max_attempts: Maximum number of attempts to check for job completion. (default: 20)
+    :param deferrable: If True, the operator will wait asynchronously for the job to stop.
+        This implies waiting for completion. This mode requires aiobotocore module to be installed.
+        (default: False)
+
+    :param aws_conn_id: The Airflow connection used for AWS credentials.
+        If this is ``None`` or empty then the default boto3 behaviour is used. If
+        running Airflow in a distributed manner and aws_conn_id is None or
+        empty, then default boto3 configuration would be used (and must be
+        maintained on each worker node).
+    :param region_name: AWS region_name. If not specified then the default boto3 behaviour is used.
+    :param verify: Whether or not to verify SSL certificates. See:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+    :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
+        https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
+    """
+
+    aws_hook_class = GlueDataQualityHook
+
+    template_fields: Sequence[str] = (
+        "datasource",
+        "role",
+        "rule_set_names",
+        "rule_set_evaluation_run_kwargs"
+    )
+
+    template_fields_renderers = {
+        "datasource": "json",
+        "rule_set_evaluation_run_kwargs": "json"
+    }
+    ui_color = "#ededed"
+
+    def __init__(
+        self,
+        *,
+        datasource: dict,
+        role: str,
+        rule_set_names: list[str],
+        number_of_workers: int = 5,
+        timeout: int = 2880,
+        fail_on_result_validation: bool = False,
+        show_results: bool = True,
+        rule_set_evaluation_run_kwargs: dict | None = None,
+        wait_for_completion: bool = True,
+        waiter_delay: int = 60,
+        waiter_max_attempts: int = 20,
+        deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
+        aws_conn_id: str | None = "aws_default",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.datasource = datasource
+        self.role = role
+        self.rule_set_names = rule_set_names
+        self.number_of_workers = number_of_workers
+        self.timeout = timeout
+        self.fail_on_result_validation = fail_on_result_validation
+        self.show_results = show_results
+        self.rule_set_evaluation_run_kwargs = rule_set_evaluation_run_kwargs or {}
+        self.wait_for_completion = wait_for_completion
+        self.waiter_delay = waiter_delay
+        self.waiter_max_attempts = waiter_max_attempts
+        self.deferrable = deferrable
+        self.aws_conn_id = aws_conn_id
+
+    def validate_inputs(self) -> None:
+        glue_table = self.datasource.get("GlueTable", {})
+
+        if not glue_table.get("DatabaseName") or not glue_table.get("TableName"):
+            raise AttributeError(
+                "DataSource glue table must have DatabaseName and TableName"
+            )
+
+        not_found_ruleset = []
+
+        for ruleset_name in self.rule_set_names:
+            if not self.hook.has_data_quality_ruleset(ruleset_name):
+                not_found_ruleset.append(ruleset_name)
+
+        if not_found_ruleset:
+            raise AirflowException(f"Following RulesetNames are not found {not_found_ruleset}")
+
+    @cached_property
+    def glue_data_quality_hook(self) -> GlueDataQualityHook:
+        return GlueDataQualityHook(
+            show_results=self.show_results,
+            fail_on_result_validation=self.fail_on_result_validation,
+            aws_conn_id=self.aws_conn_id,
+        )
+
+    def execute(self, context: Context) -> str:
+        self.validate_inputs()
+
+        self.log.info("Starting AWS Glue data quality ruleset evaluation run for RulesetNames %s",
+                      self.rule_set_names)
+
+        response = self.glue_data_quality_hook.conn.start_data_quality_ruleset_evaluation_run(
+            DataSource=self.datasource,
+            Role=self.role,
+            NumberOfWorkers=self.number_of_workers,
+            Timeout=self.timeout,
+            RulesetNames=self.rule_set_names,
+            **self.rule_set_evaluation_run_kwargs
+        )
+
+        run_id = response["RunId"]
+
+        message_description = f"start evaluation run RunId: {run_id} to complete."
+        if self.deferrable:
+            self.log.info("Deferring %s", message_description)
+            self.defer(
+                trigger=GlueDataQualityRuleSetEvaluationRunCompleteTrigger(
+                    run_id=response["RunId"],
+                    waiter_delay=self.waiter_delay,
+                    waiter_max_attempts=self.waiter_max_attempts,
+                    aws_conn_id=self.aws_conn_id,
+                ),
+                method_name="execute_complete",
+            )
+
+        elif self.wait_for_completion:
+            self.log.info("Waiting for %s", message_description)
+
+            self.hook.get_waiter("data_quality_ruleset_evaluation_run_complete").wait(
+                RunId=run_id,
+                WaiterConfig={"Delay": self.waiter_delay, "MaxAttempts": self.waiter_max_attempts},
+            )
+
+            self.log.info("AWS Glue data quality run completed RunId: %s", run_id)
+
+        else:
+            self.log.info("AWS glue data quality ruleset evaluation run runId: %s",
+                          run_id)
+
+        return run_id
+
+    def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
+        event = validate_execute_complete_event(event)
+
+        if event["status"] != "success":
+            raise AirflowException(f"Error in AWS Glue data quality ruleset evaluation run: {event}")
+
+        self.glue_data_quality_hook.validate_evaluation_run_results(run_id=event["run_id"])
+
+        return event["run_id"]

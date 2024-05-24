@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING, Sequence
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.glue import GlueJobHook
+from airflow.providers.amazon.aws.hooks.glue_data_quality import GlueDataQualityHook
+from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
+from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.sensors.base import BaseSensorOperator
 
 if TYPE_CHECKING:
@@ -91,3 +94,69 @@ class GlueJobSensor(BaseSensorOperator):
                     run_id=self.run_id,
                     continuation_tokens=self.next_log_tokens,
                 )
+
+
+class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
+    """
+    Waits for an AWS Glue data quality evaluation run to reach any of the status below.
+
+    'FAILED', 'STOPPED', 'SUCCEEDED'
+
+    .. seealso::
+        For more information on how to use this sensor, take a look at the guide:
+        :ref:`howto/sensor:GlueDataQualityEvaluationRunSensor`
+
+    :param run_id: The AWS Glue data quality evaluation run identifier
+
+    :param aws_conn_id: The Airflow connection used for AWS credentials.
+        If this is ``None`` or empty then the default boto3 behaviour is used. If
+        running Airflow in a distributed manner and aws_conn_id is None or
+        empty, then default boto3 configuration would be used (and must be
+        maintained on each worker node).
+    :param region_name: AWS region_name. If not specified then the default boto3 behaviour is used.
+    :param verify: Whether to verify SSL certificates. See:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+    :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
+        https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
+    """
+
+    aws_hook_class = GlueDataQualityHook
+    template_fields: Sequence[str] = aws_template_fields("run_id")
+
+    def __init__(
+        self,
+        *,
+        run_id: str,
+        aws_conn_id: str | None = "aws_default",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.run_id = run_id
+        self.aws_conn_id = aws_conn_id
+        self.success_states: list[str] = ["SUCCEEDED"]
+        self.errored_states: list[str] = ["FAILED", "STOPPED", "TIMEOUT"]
+
+    def poke(self, context: Context):
+
+        self.log.info("Poking for AWS Glue data quality run RunId: %s", self.run_id)
+
+        response = self.hook.conn.get_data_quality_ruleset_evaluation_run(RunId=self.run_id)
+
+        if response.get("State") in self.success_states:
+            results = self.hook.conn.batch_get_data_quality_result(
+                ResultIds=response["ResultIds"]
+            )
+            self.log.info("Exiting AWS Glue data quality run RunId: %s Run State: %s", self.run_id,
+                          response["State"])
+            self.hook.validate_evaluation_results(results)
+            return True
+        elif response.get("State") in self.errored_states:
+            job_error_message = f"Exiting AWS Glue data quality run RunId: {self.run_id} Run State: {response['State']} " \
+                                f"with: {response['ErrorString']}"
+            self.log.info(job_error_message)
+            # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
+            if self.soft_fail:
+                raise AirflowSkipException(job_error_message)
+            raise AirflowException(job_error_message)
+        else:
+            return False

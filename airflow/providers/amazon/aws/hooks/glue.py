@@ -497,7 +497,10 @@ class GlueDataQualityHook(AwsBaseHook):
         pd.set_option("display.max_colwidth", None)
 
         self.log.info(
-            f"AWS Glue data quality ruleset evaluation result for RulesetName: {result.get('RulesetName')} RulesetEvaluationRunId: {result.get('RulesetEvaluationRunId')} Score: {result.get('Score')}"
+            "AWS Glue data quality ruleset evaluation result for RulesetName: %s RulesetEvaluationRunId: %s Score: %s",
+            result.get('RulesetName'),
+            result.get('RulesetEvaluationRunId'),
+            result.get('Score')
         )
 
         rule_results = result["RuleResults"]

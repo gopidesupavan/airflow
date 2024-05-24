@@ -338,8 +338,7 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
 
 class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualityHook]):
     """
-    Once you have a ruleset definition (either recommended or your own),
-    you call this operation to evaluate the ruleset against a data source (Glue table)
+    Once you have a ruleset definition (either recommended or your own), you call this operation to evaluate the ruleset against a data source (Glue table).
 
     .. seealso::
         For more information on how to use this operator, take a look at the guide:

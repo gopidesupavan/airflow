@@ -498,9 +498,9 @@ class GlueDataQualityHook(AwsBaseHook):
 
         self.log.info(
             "AWS Glue data quality ruleset evaluation result for RulesetName: %s RulesetEvaluationRunId: %s Score: %s",
-            result.get('RulesetName'),
-            result.get('RulesetEvaluationRunId'),
-            result.get('Score')
+            result.get("RulesetName"),
+            result.get("RulesetEvaluationRunId"),
+            result.get("Score"),
         )
 
         rule_results = result["RuleResults"]

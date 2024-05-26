@@ -465,7 +465,7 @@ class GlueDataQualityHook(AwsBaseHook):
         super().__init__(*args, **kwargs)
 
     def has_data_quality_ruleset(self, name: str) -> bool:
-        self.log.info("Checking if AWS Glue data quality ruleset: %s already exists", name)
+        self.log.info("Checking if AWS Glue data quality ruleset: %s exists", name)
         try:
             self.conn.get_data_quality_ruleset(Name=name)
             return True
@@ -477,7 +477,7 @@ class GlueDataQualityHook(AwsBaseHook):
             self.log.info("Updating AWS Glue data quality ruleset with: %s", config)
             self.conn.update_data_quality_ruleset(**config)
         else:
-            raise AirflowException(f"AWS Glue data quality ruleset {config['Name']} not exists to update")
+            raise AirflowException(f"AWS Glue data quality ruleset {config['Name']} not exists to update.")
 
     def create_glue_data_quality_ruleset(self, config: dict[str, Any]) -> None:
         if not self.has_data_quality_ruleset(config["Name"]):
@@ -485,7 +485,7 @@ class GlueDataQualityHook(AwsBaseHook):
             self.conn.create_data_quality_ruleset(**config)
         else:
             raise AirflowException(
-                f"AWS Glue data quality ruleset {config['Name']} already exists with same name"
+                f"AWS Glue data quality ruleset {config['Name']} already exists with same name."
             )
 
     def display_result(self, result: dict[str, Any]) -> None:

@@ -29,10 +29,9 @@ from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJob
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
-from airflow.providers.amazon.aws.triggers.glue import GlueJobCompleteTrigger
-from airflow.providers.amazon.aws.triggers.glue_data_quality import (
-    GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
-)
+from airflow.providers.amazon.aws.triggers.glue import GlueJobCompleteTrigger, \
+    GlueDataQualityRuleSetEvaluationRunCompleteTrigger
+
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 
 if TYPE_CHECKING:
@@ -302,7 +301,7 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
         self.data_quality_ruleset_kwargs = data_quality_ruleset_kwargs or {}
         self.aws_conn_id = aws_conn_id
 
-    def validate_inputs(self):
+    def validate_inputs(self) -> None:
         if not self.ruleset.startswith("Rules") or not self.ruleset.endswith("]"):
             raise AttributeError("RuleSet must starts with Rules = [ and ends with ]")
 
@@ -395,7 +394,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         timeout: int = 2880,
         fail_on_result_validation: bool = False,
         show_results: bool = True,
-        rule_set_evaluation_run_kwargs: dict | None = None,
+        rule_set_evaluation_run_kwargs: dict[str, Any] | None = None,
         wait_for_completion: bool = True,
         waiter_delay: int = 60,
         waiter_max_attempts: int = 20,
@@ -480,10 +479,11 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
                 WaiterConfig={"Delay": self.waiter_delay, "MaxAttempts": self.waiter_max_attempts},
             )
 
-            self.log.info("AWS Glue data quality run completed RunId: %s", run_id)
+            self.log.info("AWS Glue data quality run completed RunId: %s.", run_id)
 
+            self.glue_data_quality_hook.validate_evaluation_run_results(run_id=run_id)
         else:
-            self.log.info("AWS glue data quality ruleset evaluation run runId: %s", run_id)
+            self.log.info("AWS glue data quality ruleset evaluation run runId: %s.", run_id)
 
         return run_id
 

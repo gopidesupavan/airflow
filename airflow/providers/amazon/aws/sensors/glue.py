@@ -21,8 +21,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Sequence
 
 from airflow.exceptions import AirflowException, AirflowSkipException
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook
-from airflow.providers.amazon.aws.hooks.glue_data_quality import GlueDataQualityHook
+from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
 from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.sensors.base import BaseSensorOperator
@@ -96,7 +95,7 @@ class GlueJobSensor(BaseSensorOperator):
                 )
 
 
-class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
+class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
     """
     Waits for an AWS Glue data quality evaluation run to reach any of the status below.
 
@@ -120,6 +119,15 @@ class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
         https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
     """
 
+    SUCCESS_STATES = ("SUCCEEDED",)
+
+    FAILURE_STATES = (
+        "FAILED",
+        "STOPPED",
+        "STOPPING",
+        "TIMEOUT"
+    )
+
     aws_hook_class = GlueDataQualityHook
     template_fields: Sequence[str] = aws_template_fields("run_id")
 
@@ -127,6 +135,8 @@ class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
         self,
         *,
         run_id: str,
+        show_results: bool = True,
+        fail_on_result_validation: bool = False,
         aws_conn_id: str | None = "aws_default",
         **kwargs,
     ):
@@ -135,23 +145,27 @@ class GlueDataQualityEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
         self.aws_conn_id = aws_conn_id
         self.success_states: list[str] = ["SUCCEEDED"]
         self.errored_states: list[str] = ["FAILED", "STOPPED", "TIMEOUT"]
+        self.hook.show_results = show_results
+        self.hook.fail_on_result_validation = fail_on_result_validation
 
     def poke(self, context: Context):
         self.log.info("Poking for AWS Glue data quality run RunId: %s", self.run_id)
 
         response = self.hook.conn.get_data_quality_ruleset_evaluation_run(RunId=self.run_id)
+        state = response.get("State")
+        if state in self.success_states:
 
-        if response.get("State") in self.success_states:
-            results = self.hook.conn.batch_get_data_quality_result(ResultIds=response["ResultIds"])
+            self.hook.validate_evaluation_run_results(run_id=self.run_id)
+
             self.log.info(
-                "Exiting AWS Glue data quality run RunId: %s Run State: %s", self.run_id, response["State"]
+                "AWS Glue data quality evaluation run completed RunId: %s Run State: %s.", self.run_id,
+                response["State"]
             )
-            self.hook.validate_evaluation_results(results)
             return True
-        elif response.get("State") in self.errored_states:
+        elif state in self.errored_states:
             job_error_message = (
-                f"Exiting AWS Glue data quality run RunId: {self.run_id} Run State: {response['State']} "
-                f"with: {response['ErrorString']}"
+                f"Error: AWS Glue data quality evaluation run RunId: {self.run_id} Run State: {state} "
+                f": {response.get('ErrorString')}"
             )
             self.log.info(job_error_message)
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1

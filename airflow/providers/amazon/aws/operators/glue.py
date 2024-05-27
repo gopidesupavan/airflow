@@ -29,9 +29,10 @@ from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJob
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
-from airflow.providers.amazon.aws.triggers.glue import GlueJobCompleteTrigger, \
-    GlueDataQualityRuleSetEvaluationRunCompleteTrigger
-
+from airflow.providers.amazon.aws.triggers.glue import (
+    GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
+    GlueJobCompleteTrigger,
+)
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 
 if TYPE_CHECKING:
@@ -451,7 +452,9 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
 
         evaluation_run_id = response["RunId"]
 
-        message_description = f"AWS Glue data quality ruleset evaluation run RunId: {evaluation_run_id} to complete."
+        message_description = (
+            f"AWS Glue data quality ruleset evaluation run RunId: {evaluation_run_id} to complete."
+        )
         if self.deferrable:
             self.log.info("Deferring %s", message_description)
             self.defer(
@@ -472,12 +475,15 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
                 WaiterConfig={"Delay": self.waiter_delay, "MaxAttempts": self.waiter_max_attempts},
             )
 
-            self.log.info("AWS Glue data quality ruleset evaluation run completed RunId: %s",
-                          evaluation_run_id)
+            self.log.info(
+                "AWS Glue data quality ruleset evaluation run completed RunId: %s", evaluation_run_id
+            )
 
-            self.hook.validate_evaluation_run_results(evaluation_run_id=evaluation_run_id,
-                                                      show_results=self.show_results,
-                                                      fail_on_result_validation=self.fail_on_result_validation)
+            self.hook.validate_evaluation_run_results(
+                evaluation_run_id=evaluation_run_id,
+                show_results=self.show_results,
+                fail_on_result_validation=self.fail_on_result_validation,
+            )
         else:
             self.log.info("AWS glue data quality ruleset evaluation run runId: %s.", evaluation_run_id)
 
@@ -489,8 +495,10 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         if event["status"] != "success":
             raise AirflowException(f"Error: AWS Glue data quality ruleset evaluation run: {event}")
 
-        self.hook.validate_evaluation_run_results(evaluation_run_id=event["evaluation_run_id"],
-                                                  show_results=self.show_results,
-                                                  fail_on_result_validation=self.fail_on_result_validation)
+        self.hook.validate_evaluation_run_results(
+            evaluation_run_id=event["evaluation_run_id"],
+            show_results=self.show_results,
+            fail_on_result_validation=self.fail_on_result_validation,
+        )
 
         return event["evaluation_run_id"]

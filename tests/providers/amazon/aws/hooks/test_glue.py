@@ -557,7 +557,8 @@ class TestGlueDataQualityHook:
         hook = GlueDataQualityHook(aws_conn_id=None)
 
         with pytest.raises(
-            AirflowException, match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} not exists to update."
+            AirflowException,
+            match=f"AWS Glue data quality ruleset {self.RULE_SET_NAME} not exists to update.",
         ):
             hook.update_glue_data_quality_ruleset(self.RULE_SET_CONFIG)
 

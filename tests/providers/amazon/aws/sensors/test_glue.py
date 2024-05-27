@@ -20,10 +20,10 @@ from unittest import mock
 from unittest.mock import ANY
 
 import pytest
-from moto import mock_aws
+
 from airflow.exceptions import AirflowException, AirflowSkipException
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
-from airflow.providers.amazon.aws.sensors.glue import GlueJobSensor, GlueDataQualityRuleSetEvaluationRunSensor
+from airflow.providers.amazon.aws.hooks.glue import GlueJobHook
+from airflow.providers.amazon.aws.sensors.glue import GlueJobSensor
 
 
 class TestGlueJobSensor:

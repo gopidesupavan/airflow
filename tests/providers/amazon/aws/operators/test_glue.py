@@ -26,8 +26,11 @@ from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
-from airflow.providers.amazon.aws.operators.glue import GlueJobOperator, GlueDataQualityOperator, \
-    GlueDataQualityRuleSetEvaluationRunOperator
+from airflow.providers.amazon.aws.operators.glue import (
+    GlueJobOperator,
+    GlueDataQualityOperator,
+    GlueDataQualityRuleSetEvaluationRunOperator,
+)
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
@@ -316,7 +319,7 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
-            target_table=self.TARGET_TABLE
+            target_table=self.TARGET_TABLE,
         )
         self.operator.defer = mock.MagicMock()
 
@@ -331,7 +334,7 @@ class TestGlueDataQualityOperator:
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
             target_table=self.TARGET_TABLE,
-            description="create ruleset"
+            description="create ruleset",
         )
         self.operator.defer = mock.MagicMock()
 
@@ -343,7 +346,7 @@ class TestGlueDataQualityOperator:
 
         self.operator.execute({})
         glue_data_quality_mock_conn.create_data_quality_ruleset.assert_called_once_with(
-            Description='create ruleset',
+            Description="create ruleset",
             Name=self.RULE_SET_NAME,
             Ruleset=self.RULE_SET,
             TargetTable=self.TARGET_TABLE,
@@ -356,7 +359,7 @@ class TestGlueDataQualityOperator:
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
             description="update ruleset",
-            update_rule_set=True
+            update_rule_set=True,
         )
         self.operator.defer = mock.MagicMock()
 
@@ -364,9 +367,7 @@ class TestGlueDataQualityOperator:
 
         self.operator.execute({})
         dataquality_conn_mock.update_data_quality_ruleset.assert_called_once_with(
-            Description='update ruleset',
-            Name=self.RULE_SET_NAME,
-            Ruleset=self.RULE_SET
+            Description="update ruleset", Name=self.RULE_SET_NAME, Ruleset=self.RULE_SET
         )
 
     def test_validate_inputs(self):
@@ -374,7 +375,7 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
-            target_table=self.TARGET_TABLE
+            target_table=self.TARGET_TABLE,
         )
 
         assert self.operator.validate_inputs() is None
@@ -384,7 +385,7 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset='[ColumnLength "review_id" = 15]',
-            target_table=self.TARGET_TABLE
+            target_table=self.TARGET_TABLE,
         )
 
         with pytest.raises(AttributeError, match="RuleSet must starts with Rules = \\[ and ends with \\]"):
@@ -433,7 +434,7 @@ class TestGlueDataQualityRuleSetEvaluationRunOperator:
             datasource=self.DATA_SOURCE,
             role=self.ROLE,
             rule_set_names=self.RULE_SET_NAMES,
-            rule_set_evaluation_run_kwargs={"AdditionalRunOptions": {"CloudWatchMetricsEnabled": True}}
+            rule_set_evaluation_run_kwargs={"AdditionalRunOptions": {"CloudWatchMetricsEnabled": True}},
         )
 
         self.op.wait_for_completion = False
@@ -445,7 +446,7 @@ class TestGlueDataQualityRuleSetEvaluationRunOperator:
             NumberOfWorkers=5,
             Timeout=2880,
             RulesetNames=self.RULE_SET_NAMES,
-            AdditionalRunOptions={"CloudWatchMetricsEnabled": True}
+            AdditionalRunOptions={"CloudWatchMetricsEnabled": True},
         )
 
     def test_validate_inputs(self, mock_conn):

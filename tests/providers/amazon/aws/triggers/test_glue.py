@@ -23,10 +23,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from airflow.exceptions import AirflowException
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
+from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.glue_catalog import GlueCatalogHook
-from airflow.providers.amazon.aws.triggers.glue import GlueCatalogPartitionTrigger, GlueJobCompleteTrigger, \
-    GlueDataQualityRuleSetEvaluationRunCompleteTrigger
+from airflow.providers.amazon.aws.triggers.glue import (
+    GlueCatalogPartitionTrigger,
+    GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
+    GlueJobCompleteTrigger,
+)
 from airflow.triggers.base import TriggerEvent
 from tests.providers.amazon.aws.utils.test_waiter import assert_expected_waiter_type
 
@@ -102,9 +105,7 @@ class TestGlueDataQualityEvaluationRunCompletedTrigger:
 
     def test_serialization(self):
         """Assert that arguments and classpath are correctly serialized."""
-        trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(
-            evaluation_run_id=self.RUN_ID
-        )
+        trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(evaluation_run_id=self.RUN_ID)
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "GlueDataQualityRuleSetEvaluationRunCompleteTrigger"
         assert kwargs.get("run_id") == self.RUN_ID

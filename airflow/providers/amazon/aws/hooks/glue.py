@@ -502,14 +502,16 @@ class GlueDataQualityHook(AwsBaseHook):
 
         return self.conn.batch_get_data_quality_result(ResultIds=response["ResultIds"])
 
-    def validate_evaluation_run_results(self, evaluation_run_id: str, show_results: bool = True,
-                                        fail_on_result_validation: bool = False) -> None:
+    def validate_evaluation_run_results(
+        self, evaluation_run_id: str, show_results: bool = True, fail_on_result_validation: bool = False
+    ) -> None:
         results = self.get_evaluation_run_results(evaluation_run_id)
         total_failed_rules = 0
 
         if results.get("ResultsNotFound"):
             self.log.info(
-                "AWS Glue data quality ruleset evaluation run, results not found for %s", results["ResultsNotFound"]
+                "AWS Glue data quality ruleset evaluation run, results not found for %s",
+                results["ResultsNotFound"],
             )
 
         for result in results["Results"]:
@@ -523,8 +525,10 @@ class GlueDataQualityHook(AwsBaseHook):
 
         self.log.info(
             "AWS Glue data quality ruleset evaluation run, total number of rules failed: %s",
-            total_failed_rules
+            total_failed_rules,
         )
 
         if fail_on_result_validation and total_failed_rules > 0:
-            raise AirflowException("AWS Glue data quality ruleset evaluation run failed for one or more rules")
+            raise AirflowException(
+                "AWS Glue data quality ruleset evaluation run failed for one or more rules"
+            )

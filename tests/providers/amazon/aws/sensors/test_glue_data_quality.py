@@ -19,7 +19,6 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
-from moto import mock_aws
 
 from airflow.exceptions import AirflowException, AirflowSkipException, TaskDeferred
 from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook
@@ -28,13 +27,13 @@ from airflow.providers.amazon.aws.sensors.glue import GlueDataQualityRuleSetEval
 SAMPLE_RESPONSE_GET_DATA_QUALITY_EVALUATION_RUN_SUCCEEDED = {
     "RunId": "12345",
     "Status": "SUCCEEDED",
-    "ResultIds": ["dqresult-123456"]
+    "ResultIds": ["dqresult-123456"],
 }
 
 SAMPLE_RESPONSE_GET_DATA_QUALITY_EVALUATION_RUN_RUNNING = {
     "RunId": "12345",
     "Status": "RUNNING",
-    "ResultIds": ["dqresult-123456"]
+    "ResultIds": ["dqresult-123456"],
 }
 
 SAMPLE_RESPONSE_GET_DATA_QUALITY_RESULT = {
@@ -75,12 +74,9 @@ class TestGlueDataQualityRuleSetEvaluationRunSensor:
             task_id="test_data_quality_ruleset_evaluation_run_sensor",
             evaluation_run_id="12345",
             poke_interval=5,
-            max_retries=0
+            max_retries=0,
         )
-        self.sensor = self.SENSOR(
-            **self.default_args,
-            aws_conn_id=None
-        )
+        self.sensor = self.SENSOR(**self.default_args, aws_conn_id=None)
 
     def test_base_aws_op_attributes(self):
         op = self.SENSOR(**self.default_args)
@@ -104,15 +100,17 @@ class TestGlueDataQualityRuleSetEvaluationRunSensor:
 
     @mock.patch.object(GlueDataQualityHook, "conn")
     def test_poke_success_state(self, mock_conn):
-        mock_conn.get_data_quality_ruleset_evaluation_run.return_value = \
+        mock_conn.get_data_quality_ruleset_evaluation_run.return_value = (
             SAMPLE_RESPONSE_GET_DATA_QUALITY_EVALUATION_RUN_SUCCEEDED
+        )
 
         assert self.sensor.poke({}) is True
 
     @mock.patch.object(GlueDataQualityHook, "conn")
     def test_poke_intermediate_state(self, mock_conn):
-        mock_conn.get_data_quality_ruleset_evaluation_run.return_value = \
+        mock_conn.get_data_quality_ruleset_evaluation_run.return_value = (
             SAMPLE_RESPONSE_GET_DATA_QUALITY_EVALUATION_RUN_RUNNING
+        )
 
         assert self.sensor.poke({}) is False
 
@@ -130,13 +128,12 @@ class TestGlueDataQualityRuleSetEvaluationRunSensor:
             "RunId": "12345",
             "Status": state,
             "ResultIds": ["dqresult-123456"],
-            "ErrorString": "unknown error"
+            "ErrorString": "unknown error",
         }
 
         sensor = self.SENSOR(**self.default_args, aws_conn_id=None, soft_fail=soft_fail)
 
-        message = f"Error: AWS Glue data quality ruleset evaluation run RunId: 12345 Run Status: {state}: " \
-                  "unknown error"
+        message = f"Error: AWS Glue data quality ruleset evaluation run RunId: 12345 Run Status: {state}: unknown error"
 
         with pytest.raises(expected_exception, match=message):
             sensor.poke({})
@@ -153,7 +150,7 @@ class TestGlueDataQualityRuleSetEvaluationRunSensor:
             deferrable=True,
         )
 
-        with pytest.raises(TaskDeferred) as exc:
+        with pytest.raises(TaskDeferred):
             sensor.execute(context=None)
 
     @mock.patch.object(GlueDataQualityHook, "conn")

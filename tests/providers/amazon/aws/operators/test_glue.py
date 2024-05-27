@@ -21,25 +21,25 @@ from unittest import mock
 
 import pytest
 
-from airflow.exceptions import TaskDeferred, AirflowException
-from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
-from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
+from airflow.exceptions import AirflowException, TaskDeferred
+from moto import mock_aws
+from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.glue import (
-    GlueJobOperator,
     GlueDataQualityOperator,
     GlueDataQualityRuleSetEvaluationRunOperator,
+    GlueJobOperator,
 )
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
+    from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 
 TASK_ID = "test_glue_operator"
 DAG_ID = "test_dag_id"
 JOB_NAME = "test_job_name/with_slash"
 JOB_RUN_ID = "11111"
-from moto import mock_aws
 
 
 class TestGlueJobOperator:

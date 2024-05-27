@@ -103,7 +103,7 @@ class TestGlueDataQualityEvaluationRunCompletedTrigger:
     def test_serialization(self):
         """Assert that arguments and classpath are correctly serialized."""
         trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(
-            run_id=self.RUN_ID
+            evaluation_run_id=self.RUN_ID
         )
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "GlueDataQualityRuleSetEvaluationRunCompleteTrigger"
@@ -115,7 +115,7 @@ class TestGlueDataQualityEvaluationRunCompletedTrigger:
     async def test_run_success(self, mock_async_conn, mock_get_waiter):
         mock_async_conn.__aenter__.return_value = mock.MagicMock()
         mock_get_waiter().wait = AsyncMock()
-        trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(run_id=self.RUN_ID)
+        trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(evaluation_run_id=self.RUN_ID)
 
         generator = trigger.run()
         response = await generator.asend(None)

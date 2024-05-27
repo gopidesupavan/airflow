@@ -18,11 +18,14 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Any
 
+from airflow.configuration import conf
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.glue import GlueJobHook, GlueDataQualityHook
 from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
+from airflow.providers.amazon.aws.triggers.glue import GlueDataQualityRuleSetEvaluationRunCompleteTrigger
+from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.sensors.base import BaseSensorOperator
 
@@ -99,11 +102,11 @@ class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHoo
     """
     Waits for an AWS Glue data quality evaluation run to reach any of the status below.
 
-    'FAILED', 'STOPPED', 'SUCCEEDED'
+    'FAILED', 'STOPPED', 'STOPPING', 'TIMEOUT', 'SUCCEEDED'
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:
-        :ref:`howto/sensor:GlueDataQualityEvaluationRunSensor`
+        :ref:`howto/sensor:GlueDataQualityRuleSetEvaluationRunSensor`
 
     :param run_id: The AWS Glue data quality evaluation run identifier
 
@@ -129,42 +132,85 @@ class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHoo
     )
 
     aws_hook_class = GlueDataQualityHook
-    template_fields: Sequence[str] = aws_template_fields("run_id")
+    template_fields: Sequence[str] = aws_template_fields("evaluation_run_id")
 
     def __init__(
         self,
         *,
-        run_id: str,
+        evaluation_run_id: str,
         show_results: bool = True,
         fail_on_result_validation: bool = False,
         aws_conn_id: str | None = "aws_default",
+        max_retries: int = 60,
+        poke_interval: int = 120,
+        deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.run_id = run_id
+        self.evaluation_run_id = evaluation_run_id
+        self.show_results = show_results
+        self.fail_on_result_validation = fail_on_result_validation
         self.aws_conn_id = aws_conn_id
-        self.success_states: list[str] = ["SUCCEEDED"]
-        self.errored_states: list[str] = ["FAILED", "STOPPED", "TIMEOUT"]
-        self.hook.show_results = show_results
-        self.hook.fail_on_result_validation = fail_on_result_validation
+        self.max_retries = max_retries
+        self.poke_interval = poke_interval
+        self.deferrable = deferrable
+
+    def execute(self, context: Context) -> Any:
+
+        if self.deferrable:
+            self.defer(
+                trigger=GlueDataQualityRuleSetEvaluationRunCompleteTrigger(
+                    evaluation_run_id=self.evaluation_run_id,
+                    waiter_delay=int(self.poke_interval),
+                    waiter_max_attempts=self.max_retries,
+                    aws_conn_id=self.aws_conn_id,
+                ),
+                method_name="execute_complete",
+            )
+        else:
+            super().execute(context=context)
+
+    def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> None:
+        event = validate_execute_complete_event(event)
+
+        if event["status"] != "success":
+            message = f"Error: AWS Glue data quality ruleset evaluation run: {event}"
+            if self.soft_fail:
+                raise AirflowSkipException(message)
+            raise AirflowException(message)
+
+        self.hook.validate_evaluation_run_results(evaluation_run_id=event["evaluation_run_id"],
+                                                  show_results=self.show_results,
+                                                  fail_on_result_validation=self.fail_on_result_validation)
+
+        self.log.info("AWS Glue data quality ruleset evaluation run completed.")
 
     def poke(self, context: Context):
-        self.log.info("Poking for AWS Glue data quality run RunId: %s", self.run_id)
+        self.log.info("Poking for AWS Glue data quality ruleset evaluation run RunId: %s",
+                      self.evaluation_run_id)
 
-        response = self.hook.conn.get_data_quality_ruleset_evaluation_run(RunId=self.run_id)
-        state = response.get("State")
-        if state in self.success_states:
+        response = self.hook.conn.get_data_quality_ruleset_evaluation_run(RunId=self.evaluation_run_id)
 
-            self.hook.validate_evaluation_run_results(run_id=self.run_id)
+        status = response.get("Status")
+
+        if status in self.SUCCESS_STATES:
+
+            self.hook.validate_evaluation_run_results(evaluation_run_id=self.evaluation_run_id,
+                                                      show_results=self.show_results,
+                                                      fail_on_result_validation=self.fail_on_result_validation)
 
             self.log.info(
-                "AWS Glue data quality evaluation run completed RunId: %s Run State: %s.", self.run_id,
-                response["State"]
+                "AWS Glue data quality ruleset evaluation run completed RunId: %s Run State: %s.",
+                self.evaluation_run_id,
+                response["Status"]
             )
+
             return True
-        elif state in self.errored_states:
+
+        elif status in self.FAILURE_STATES:
             job_error_message = (
-                f"Error: AWS Glue data quality evaluation run RunId: {self.run_id} Run State: {state} "
+                f"Error: AWS Glue data quality ruleset evaluation run RunId: {self.evaluation_run_id} Run "
+                f"Status: {status}"
                 f": {response.get('ErrorString')}"
             )
             self.log.info(job_error_message)

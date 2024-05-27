@@ -166,20 +166,20 @@ class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseWaiterTrigger):
 
     def __init__(
         self,
-        run_id: str,
+        evaluation_run_id: str,
         waiter_delay: int = 60,
         waiter_max_attempts: int = 75,
         aws_conn_id: str | None = "aws_default",
     ):
         super().__init__(
-            serialized_fields={"run_id": run_id},
+            serialized_fields={"run_id": evaluation_run_id},
             waiter_name="data_quality_ruleset_evaluation_run_complete",
-            waiter_args={"RunId": run_id},
+            waiter_args={"RunId": evaluation_run_id},
             failure_message="AWS Glue data quality evaluation run failed.",
             status_message="Status of AWS Glue data quality evaluation run is",
             status_queries=["Status"],
             return_key="run_id",
-            return_value=run_id,
+            return_value=evaluation_run_id,
             waiter_delay=waiter_delay,
             waiter_max_attempts=waiter_max_attempts,
             aws_conn_id=aws_conn_id,

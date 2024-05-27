@@ -593,7 +593,7 @@ class TestGlueDataQualityHook:
 
         with caplog.at_level(logging.INFO, logger=hook.log.name):
             caplog.clear()
-            hook.validate_evaluation_run_results(run_id=self.RUN_ID)
+            hook.validate_evaluation_run_results(evaluation_run_id=self.RUN_ID)
 
         mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(RunId=self.RUN_ID)
         mock_conn.batch_get_data_quality_result.assert_called_once_with(
@@ -647,7 +647,7 @@ class TestGlueDataQualityHook:
             with pytest.raises(
                 AirflowException, match="AWS Glue Data quality evaluation run failed for one or more rules"
             ):
-                hook.validate_evaluation_run_results(run_id=self.RUN_ID)
+                hook.validate_evaluation_run_results(evaluation_run_id=self.RUN_ID)
 
             mock_conn.get_data_quality_ruleset_evaluation_run.assert_called_once_with(RunId=self.RUN_ID)
             mock_conn.batch_get_data_quality_result.assert_called_once_with(

@@ -257,8 +257,8 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
         For more information, see the Glue developer guide.
     :param target_table: A target table associated with the data quality ruleset.
     :param description: A description of the data quality ruleset.
-    :param update_rule_set: To update existing ruleset, Set this flag to True (default: False)
-    :param data_quality_ruleset_kwargs: Extra arguments for RuleSet
+    :param update_rule_set: To update existing ruleset, Set this flag to True. (default: False)
+    :param data_quality_ruleset_kwargs: Extra arguments for RuleSet.
 
     :param aws_conn_id: The Airflow connection used for AWS credentials.
         If this is ``None`` or empty then the default boto3 behaviour is used. If
@@ -346,12 +346,12 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
     :param datasource: The data source (Glue table) associated with this run. (templated)
     :param role: IAM role supplied for job execution. (templated)
     :param rule_set_names: A list of ruleset names for evaluation. (templated)
-    :param number_of_workers: The number of G.1X workers to be used in the run. (default: 5).
+    :param number_of_workers: The number of G.1X workers to be used in the run. (default: 5)
     :param timeout: The timeout for a run in minutes. This is the maximum time that a run can consume resources
         before it is terminated and enters TIMEOUT status. (default: 2,880)
-    :param fail_on_result_validation: Validates all the ruleset rules evaluation run results,
-        If any of the rule status is Fail or Error, Then the evaluation run should be considered failed (default: False).
-    :param show_results: Displays all the ruleset rules evaluation run results (default: True).
+    :param fail_on_result_validation: Validate all the ruleset rules evaluation run results,
+        If any of the rule status is Fail or Error, Then the evaluation run should be considered failed. (default: False)
+    :param show_results: Displays all the ruleset rules evaluation run results. (default: True)
     :param rule_set_evaluation_run_kwargs: Extra arguments for evaluation run. (templated)
     :param wait_for_completion: Whether to wait for job to stop. (default: True)
     :param waiter_delay: Time in seconds to wait between status checks. (default: 60)
@@ -382,6 +382,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
     )
 
     template_fields_renderers = {"datasource": "json", "rule_set_evaluation_run_kwargs": "json"}
+
     ui_color = "#ededed"
 
     def __init__(
@@ -432,14 +433,6 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         if not_found_ruleset:
             raise AirflowException(f"Following RulesetNames are not found {not_found_ruleset}")
 
-    @cached_property
-    def glue_data_quality_hook(self) -> GlueDataQualityHook:
-        return GlueDataQualityHook(
-            show_results=self.show_results,
-            fail_on_result_validation=self.fail_on_result_validation,
-            aws_conn_id=self.aws_conn_id,
-        )
-
     def execute(self, context: Context) -> str:
         self.validate_inputs()
 
@@ -447,7 +440,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
             "Starting AWS Glue data quality ruleset evaluation run for RulesetNames %s", self.rule_set_names
         )
 
-        response = self.glue_data_quality_hook.conn.start_data_quality_ruleset_evaluation_run(
+        response = self.hook.conn.start_data_quality_ruleset_evaluation_run(
             DataSource=self.datasource,
             Role=self.role,
             NumberOfWorkers=self.number_of_workers,
@@ -456,14 +449,14 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
             **self.rule_set_evaluation_run_kwargs,
         )
 
-        run_id = response["RunId"]
+        evaluation_run_id = response["RunId"]
 
-        message_description = f"start evaluation run RunId: {run_id} to complete."
+        message_description = f"AWS Glue data quality ruleset evaluation run RunId: {evaluation_run_id} to complete."
         if self.deferrable:
             self.log.info("Deferring %s", message_description)
             self.defer(
                 trigger=GlueDataQualityRuleSetEvaluationRunCompleteTrigger(
-                    run_id=response["RunId"],
+                    evaluation_run_id=response["RunId"],
                     waiter_delay=self.waiter_delay,
                     waiter_max_attempts=self.waiter_max_attempts,
                     aws_conn_id=self.aws_conn_id,
@@ -475,24 +468,29 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
             self.log.info("Waiting for %s", message_description)
 
             self.hook.get_waiter("data_quality_ruleset_evaluation_run_complete").wait(
-                RunId=run_id,
+                RunId=evaluation_run_id,
                 WaiterConfig={"Delay": self.waiter_delay, "MaxAttempts": self.waiter_max_attempts},
             )
 
-            self.log.info("AWS Glue data quality run completed RunId: %s.", run_id)
+            self.log.info("AWS Glue data quality ruleset evaluation run completed RunId: %s",
+                          evaluation_run_id)
 
-            self.glue_data_quality_hook.validate_evaluation_run_results(run_id=run_id)
+            self.hook.validate_evaluation_run_results(evaluation_run_id=evaluation_run_id,
+                                                      show_results=self.show_results,
+                                                      fail_on_result_validation=self.fail_on_result_validation)
         else:
-            self.log.info("AWS glue data quality ruleset evaluation run runId: %s.", run_id)
+            self.log.info("AWS glue data quality ruleset evaluation run runId: %s.", evaluation_run_id)
 
-        return run_id
+        return evaluation_run_id
 
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
         event = validate_execute_complete_event(event)
 
         if event["status"] != "success":
-            raise AirflowException(f"Error in AWS Glue data quality ruleset evaluation run: {event}")
+            raise AirflowException(f"Error: AWS Glue data quality ruleset evaluation run: {event}")
 
-        self.glue_data_quality_hook.validate_evaluation_run_results(run_id=event["run_id"])
+        self.hook.validate_evaluation_run_results(evaluation_run_id=event["evaluation_run_id"],
+                                                  show_results=self.show_results,
+                                                  fail_on_result_validation=self.fail_on_result_validation)
 
-        return event["run_id"]
+        return event["evaluation_run_id"]

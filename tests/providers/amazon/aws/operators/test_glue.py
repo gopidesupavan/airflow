@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING, Generator
 from unittest import mock
 
 import pytest
+from moto import mock_aws
 
 from airflow.exceptions import AirflowException, TaskDeferred
-from moto import mock_aws
 from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJobHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
@@ -318,14 +318,12 @@ class TestGlueDataQualityOperator:
         self.operator = GlueDataQualityOperator(
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
-            ruleset=self.RULE_SET,
-            target_table=self.TARGET_TABLE,
+            ruleset=self.RULE_SET
         )
         self.operator.defer = mock.MagicMock()
 
         assert self.operator.name == self.RULE_SET_NAME
         assert self.operator.ruleset == self.RULE_SET
-        assert self.operator.target_table == self.TARGET_TABLE
 
     @mock.patch.object(GlueDataQualityHook, "conn")
     def test_execute_create_rule(self, glue_data_quality_mock_conn):
@@ -333,7 +331,6 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
-            target_table=self.TARGET_TABLE,
             description="create ruleset",
         )
         self.operator.defer = mock.MagicMock()
@@ -349,7 +346,6 @@ class TestGlueDataQualityOperator:
             Description="create ruleset",
             Name=self.RULE_SET_NAME,
             Ruleset=self.RULE_SET,
-            TargetTable=self.TARGET_TABLE,
         )
 
     @mock.patch.object(GlueDataQualityHook, "conn")
@@ -375,7 +371,6 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset=self.RULE_SET,
-            target_table=self.TARGET_TABLE,
         )
 
         assert self.operator.validate_inputs() is None
@@ -385,7 +380,6 @@ class TestGlueDataQualityOperator:
             task_id="create_data_quality_ruleset",
             name=self.RULE_SET_NAME,
             ruleset='[ColumnLength "review_id" = 15]',
-            target_table=self.TARGET_TABLE,
         )
 
         with pytest.raises(AttributeError, match="RuleSet must starts with Rules = \\[ and ends with \\]"):
@@ -433,6 +427,8 @@ class TestGlueDataQualityRuleSetEvaluationRunOperator:
             task_id="stat_evaluation_run",
             datasource=self.DATA_SOURCE,
             role=self.ROLE,
+            number_of_workers=10,
+            timeout=1000,
             rule_set_names=self.RULE_SET_NAMES,
             rule_set_evaluation_run_kwargs={"AdditionalRunOptions": {"CloudWatchMetricsEnabled": True}},
         )
@@ -443,8 +439,8 @@ class TestGlueDataQualityRuleSetEvaluationRunOperator:
         glue_data_quality_mock_conn.start_data_quality_ruleset_evaluation_run.assert_called_once_with(
             DataSource=self.DATA_SOURCE,
             Role=self.ROLE,
-            NumberOfWorkers=5,
-            Timeout=2880,
+            NumberOfWorkers=10,
+            Timeout=1000,
             RulesetNames=self.RULE_SET_NAMES,
             AdditionalRunOptions={"CloudWatchMetricsEnabled": True},
         )

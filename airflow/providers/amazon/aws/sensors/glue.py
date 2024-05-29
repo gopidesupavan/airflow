@@ -100,7 +100,7 @@ class GlueJobSensor(BaseSensorOperator):
 
 class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHook]):
     """
-    Waits for an AWS Glue data quality evaluation run to reach any of the status below.
+    Waits for an AWS Glue data quality ruleset evaluation run to reach any of the status below.
 
     'FAILED', 'STOPPED', 'STOPPING', 'TIMEOUT', 'SUCCEEDED'
 
@@ -108,7 +108,15 @@ class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHoo
         For more information on how to use this sensor, take a look at the guide:
         :ref:`howto/sensor:GlueDataQualityRuleSetEvaluationRunSensor`
 
-    :param run_id: The AWS Glue data quality evaluation run identifier
+    :param evaluation_run_id: The AWS Glue data quality ruleset evaluation run identifier.
+    :param fail_on_result_validation: Validate all the ruleset rules evaluation run results,
+        If any of the rule status is Fail or Error, Then the evaluation run should be considered failed. (default: False)
+    :param show_results: Displays all the ruleset rules evaluation run results. (default: True)
+    :param deferrable: If True, the sensor will operate in deferrable mode. This mode requires aiobotocore
+        module to be installed.
+        (default: False, but can be overridden in config file by setting default_deferrable to True)
+    :param poke_interval: Polling period in seconds to check for the status of the job. (default: 120)
+    :param max_retries: Number of times before returning the current state. (default: 60)
 
     :param aws_conn_id: The Airflow connection used for AWS credentials.
         If this is ``None`` or empty then the default boto3 behaviour is used. If
@@ -198,7 +206,7 @@ class GlueDataQualityRuleSetEvaluationRunSensor(AwsBaseSensor[GlueDataQualityHoo
             )
 
             self.log.info(
-                "AWS Glue data quality ruleset evaluation run completed RunId: %s Run State: %s.",
+                "AWS Glue data quality ruleset evaluation run completed RunId: %s Run State: %s",
                 self.evaluation_run_id,
                 response["Status"],
             )

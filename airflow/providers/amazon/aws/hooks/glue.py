@@ -455,7 +455,6 @@ class GlueDataQualityHook(AwsBaseHook):
         super().__init__(*args, **kwargs)
 
     def has_data_quality_ruleset(self, name: str) -> bool:
-        self.log.info("Checking if AWS Glue data quality ruleset: %s exists", name)
         try:
             self.conn.get_data_quality_ruleset(Name=name)
             return True
@@ -517,7 +516,7 @@ class GlueDataQualityHook(AwsBaseHook):
         for result in results["Results"]:
             rule_results = result["RuleResults"]
             total_failed_rules = total_failed_rules + sum(
-                1 for item in rule_results if item.get("Result") == "FAIL" or item.get("Result") == "ERROR"
+                1 for result in rule_results if result.get("Result") == "FAIL" or result.get("Result") == "ERROR"
             )
 
             if show_results:

@@ -108,7 +108,7 @@ class TestGlueDataQualityEvaluationRunCompletedTrigger:
         trigger = GlueDataQualityRuleSetEvaluationRunCompleteTrigger(evaluation_run_id=self.RUN_ID)
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "GlueDataQualityRuleSetEvaluationRunCompleteTrigger"
-        assert kwargs.get("run_id") == self.RUN_ID
+        assert kwargs.get("evaluation_run_id") == self.RUN_ID
 
     @pytest.mark.asyncio
     @mock.patch.object(GlueDataQualityHook, "get_waiter")
@@ -121,6 +121,6 @@ class TestGlueDataQualityEvaluationRunCompletedTrigger:
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "success", "run_id": self.RUN_ID})
+        assert response == TriggerEvent({"status": "success", "evaluation_run_id": self.RUN_ID})
         assert_expected_waiter_type(mock_get_waiter, self.EXPECTED_WAITER_NAME)
         mock_get_waiter().wait.assert_called_once()

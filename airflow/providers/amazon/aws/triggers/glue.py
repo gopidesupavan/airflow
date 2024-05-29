@@ -158,7 +158,7 @@ class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseWaiterTrigger):
     """
     Trigger when a AWS Glue data quality evaluation run complete.
 
-    :param run_id: The RunId of the AWS Glue data quality evaluation run.
+    :param evaluation_run_id: The AWS Glue data quality ruleset evaluation run identifier.
     :param waiter_delay: The amount of time in seconds to wait between attempts. (default: 60)
     :param waiter_max_attempts: The maximum number of attempts to be made. (default: 75)
     :param aws_conn_id: The Airflow connection used for AWS credentials.
@@ -172,13 +172,13 @@ class GlueDataQualityRuleSetEvaluationRunCompleteTrigger(AwsBaseWaiterTrigger):
         aws_conn_id: str | None = "aws_default",
     ):
         super().__init__(
-            serialized_fields={"run_id": evaluation_run_id},
+            serialized_fields={"evaluation_run_id": evaluation_run_id},
             waiter_name="data_quality_ruleset_evaluation_run_complete",
             waiter_args={"RunId": evaluation_run_id},
-            failure_message="AWS Glue data quality evaluation run failed.",
-            status_message="Status of AWS Glue data quality evaluation run is",
+            failure_message="AWS Glue data quality ruleset evaluation run failed.",
+            status_message="Status of AWS Glue data quality ruleset evaluation run is",
             status_queries=["Status"],
-            return_key="run_id",
+            return_key="evaluation_run_id",
             return_value=evaluation_run_id,
             waiter_delay=waiter_delay,
             waiter_max_attempts=waiter_max_attempts,

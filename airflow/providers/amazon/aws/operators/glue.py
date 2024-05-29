@@ -256,7 +256,6 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
     :param name: A unique name for the data quality ruleset.
     :param ruleset: A Data Quality Definition Language (DQDL) ruleset.
         For more information, see the Glue developer guide.
-    :param target_table: A target table associated with the data quality ruleset.
     :param description: A description of the data quality ruleset.
     :param update_rule_set: To update existing ruleset, Set this flag to True. (default: False)
     :param data_quality_ruleset_kwargs: Extra arguments for RuleSet.
@@ -274,10 +273,10 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
     """
 
     aws_hook_class = GlueDataQualityHook
-    template_fields: Sequence[str] = ("name", "ruleset", "target_table")
+    template_fields: Sequence[str] = ("name", "ruleset", "data_quality_ruleset_kwargs")
 
     template_fields_renderers = {
-        "target_table": "json",
+        "data_quality_ruleset_kwargs": "json",
     }
     ui_color = "#ededed"
 
@@ -286,7 +285,6 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
         *,
         name: str,
         ruleset: str,
-        target_table: dict | None = None,
         description: str = "AWS Glue Data Quality Rule Set With Airflow",
         update_rule_set: bool = False,
         data_quality_ruleset_kwargs: dict | None = None,
@@ -296,7 +294,6 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
         super().__init__(**kwargs)
         self.name = name
         self.ruleset = ruleset.strip()
-        self.target_table = target_table or {}
         self.description = description
         self.update_rule_set = update_rule_set
         self.data_quality_ruleset_kwargs = data_quality_ruleset_kwargs or {}
@@ -306,23 +303,15 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
         if not self.ruleset.startswith("Rules") or not self.ruleset.endswith("]"):
             raise AttributeError("RuleSet must starts with Rules = [ and ends with ]")
 
-        if not self.update_rule_set:
-            if not self.target_table.get("TableName") or not self.target_table.get("DatabaseName"):
-                raise AttributeError("Target table must have TableName and DatabaseName")
+        if self.data_quality_ruleset_kwargs.get("TargetTable"):
+            target_table = self.data_quality_ruleset_kwargs["TargetTable"]
+
+            if not target_table.get("TableName") or not target_table.get("DatabaseName"):
+                raise AttributeError("Target table must have DatabaseName and TableName")
 
     def execute(self, context: Context):
         self.validate_inputs()
 
-        config = self._prepare_data_quality_ruleset_config()
-
-        if self.update_rule_set:
-            self.hook.update_glue_data_quality_ruleset(config)
-            self.log.info("AWS Glue data quality ruleset updated successfully")
-        else:
-            self.hook.create_glue_data_quality_ruleset(config)
-            self.log.info("AWS Glue data quality ruleset created successfully")
-
-    def _prepare_data_quality_ruleset_config(self):
         config = {
             "Name": self.name,
             "Ruleset": self.ruleset,
@@ -330,10 +319,12 @@ class GlueDataQualityOperator(AwsBaseOperator[GlueDataQualityHook]):
             **self.data_quality_ruleset_kwargs,
         }
 
-        if not self.update_rule_set:
-            config["TargetTable"] = self.target_table
-
-        return config
+        if self.update_rule_set:
+            self.hook.update_glue_data_quality_ruleset(config)
+            self.log.info("AWS Glue data quality ruleset updated successfully")
+        else:
+            self.hook.create_glue_data_quality_ruleset(config)
+            self.log.info("AWS Glue data quality ruleset created successfully")
 
 
 class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualityHook]):
@@ -438,7 +429,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
         self.validate_inputs()
 
         self.log.info(
-            "Starting AWS Glue data quality ruleset evaluation run for RulesetNames %s", self.rule_set_names
+            "Submitting AWS Glue data quality ruleset evaluation run for RulesetNames %s", self.rule_set_names
         )
 
         response = self.hook.conn.start_data_quality_ruleset_evaluation_run(
@@ -485,7 +476,7 @@ class GlueDataQualityRuleSetEvaluationRunOperator(AwsBaseOperator[GlueDataQualit
                 fail_on_result_validation=self.fail_on_result_validation,
             )
         else:
-            self.log.info("AWS glue data quality ruleset evaluation run runId: %s.", evaluation_run_id)
+            self.log.info("AWS Glue data quality ruleset evaluation run runId: %s.", evaluation_run_id)
 
         return evaluation_run_id
 

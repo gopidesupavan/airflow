@@ -99,6 +99,7 @@ To start a AWS Glue Data Quality ruleset evaluation run you can use
     :start-after: [START howto_operator_glue_data_quality_ruleset_evaluation_run_operator]
     :end-before: [END howto_operator_glue_data_quality_ruleset_evaluation_run_operator]
 
+.. _howto/operator:GlueDataQualityRuleRecommendationRunOperator:
 
 Start a AWS Glue Data Quality Recommendation Run
 =================================================
@@ -157,6 +158,8 @@ reaches a terminal state you can use :class:`~airflow.providers.amazon.aws.senso
     :dedent: 4
     :start-after: [START howto_sensor_glue_data_quality_ruleset_evaluation_run]
     :end-before: [END howto_sensor_glue_data_quality_ruleset_evaluation_run]
+
+.. _howto/sensor:GlueDataQualityRuleRecommendationRunSensor:
 
 Wait on an AWS Glue Data Quality Recommendation Run
 ====================================================

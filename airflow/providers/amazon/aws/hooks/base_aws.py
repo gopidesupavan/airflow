@@ -233,6 +233,7 @@ class BaseSessionFactory(LoggingMixin):
             from aiobotocore.session import get_session as async_get_session
 
             session = async_get_session()
+
         else:
             session = botocore.session.get_session()
 

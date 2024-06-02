@@ -24,16 +24,18 @@ from airflow.models.baseoperator import chain
 from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook
 from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 from airflow.providers.amazon.aws.operators.glue import (
-    GlueDataQualityOperator,
-    GlueDataQualityRuleSetEvaluationRunOperator, GlueDataQualityRuleRecommendationRunOperator,
+    GlueDataQualityRuleRecommendationRunOperator,
+    GlueDataQualityRuleSetEvaluationRunOperator,
 )
 from airflow.providers.amazon.aws.operators.s3 import (
     S3CreateBucketOperator,
     S3CreateObjectOperator,
     S3DeleteBucketOperator,
 )
-from airflow.providers.amazon.aws.sensors.glue import GlueDataQualityRuleSetEvaluationRunSensor, \
-    GlueDataQualityRuleRecommendationRunSensor
+from airflow.providers.amazon.aws.sensors.glue import (
+    GlueDataQualityRuleRecommendationRunSensor,
+    GlueDataQualityRuleSetEvaluationRunSensor,
+)
 from airflow.utils.trigger_rule import TriggerRule
 from tests.system.providers.amazon.aws.utils import SystemTestContextBuilder
 
@@ -60,7 +62,7 @@ def glue_data_quality_recommendation_workflow():
             }
         },
         role=test_context[ROLE_ARN_KEY],
-        recommendation_run_kwargs={"CreatedRulesetName": rule_set_name}
+        recommendation_run_kwargs={"CreatedRulesetName": rule_set_name},
     )
     # [END howto_operator_glue_data_quality_rule_recommendation_run]
     recommendation_run.wait_for_completion = False
@@ -90,8 +92,9 @@ def glue_data_quality_recommendation_workflow():
         evaluation_run_id=start_evaluation_run.output,
     )
 
-    chain(recommendation_run, await_recommendation_run_sensor, start_evaluation_run,
-          await_evaluation_run_sensor)
+    chain(
+        recommendation_run, await_recommendation_run_sensor, start_evaluation_run, await_evaluation_run_sensor
+    )
 
 
 @task(trigger_rule=TriggerRule.ALL_DONE)

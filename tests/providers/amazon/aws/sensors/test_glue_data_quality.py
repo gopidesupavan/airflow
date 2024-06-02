@@ -22,8 +22,10 @@ import pytest
 
 from airflow.exceptions import AirflowException, AirflowSkipException, TaskDeferred
 from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook
-from airflow.providers.amazon.aws.sensors.glue import GlueDataQualityRuleSetEvaluationRunSensor, \
-    GlueDataQualityRuleRecommendationRunSensor
+from airflow.providers.amazon.aws.sensors.glue import (
+    GlueDataQualityRuleRecommendationRunSensor,
+    GlueDataQualityRuleSetEvaluationRunSensor,
+)
 
 SAMPLE_RESPONSE_GET_DATA_QUALITY_EVALUATION_RUN_SUCCEEDED = {
     "RunId": "12345",
@@ -76,13 +78,10 @@ RULES = [
 SAMPLE_RESPONSE_GET_DATA_RULE_RECOMMENDATION_RUN_SUCCEEDED = {
     "RunId": "12345",
     "Status": "SUCCEEDED",
-    'RecommendedRuleset': RULES
+    "RecommendedRuleset": RULES,
 }
 
-SAMPLE_RESPONSE_DATA_RULE_RECOMMENDATION_RUN_RUNNING = {
-    "RunId": "12345",
-    "Status": "RUNNING"
-}
+SAMPLE_RESPONSE_DATA_RULE_RECOMMENDATION_RUN_RUNNING = {"RunId": "12345", "Status": "RUNNING"}
 
 
 class TestGlueDataQualityRuleSetEvaluationRunSensor:
@@ -265,7 +264,9 @@ class TestGlueDataQualityRuleRecommendationRunSensor:
 
         sensor = self.SENSOR(**self.default_args, aws_conn_id=None, soft_fail=soft_fail)
 
-        message = f"Error: AWS Glue data quality recommendation run RunId: 12345 Run Status: {state}: unknown error"
+        message = (
+            f"Error: AWS Glue data quality recommendation run RunId: 12345 Run Status: {state}: unknown error"
+        )
 
         with pytest.raises(expected_exception, match=message):
             sensor.poke({})
@@ -287,7 +288,9 @@ class TestGlueDataQualityRuleRecommendationRunSensor:
 
     @mock.patch.object(GlueDataQualityHook, "conn")
     def test_execute_complete_succeeds_if_status_in_succeeded_states(self, mock_conn, caplog):
-        mock_conn.get_data_quality_rule_recommendation_run.return_value = SAMPLE_RESPONSE_GET_DATA_RULE_RECOMMENDATION_RUN_SUCCEEDED
+        mock_conn.get_data_quality_rule_recommendation_run.return_value = (
+            SAMPLE_RESPONSE_GET_DATA_RULE_RECOMMENDATION_RUN_SUCCEEDED
+        )
 
         op = GlueDataQualityRuleRecommendationRunSensor(
             task_id="test_data_quality_rule_recommendation_run_sensor",

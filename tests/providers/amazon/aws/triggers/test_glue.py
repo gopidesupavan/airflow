@@ -27,8 +27,9 @@ from airflow.providers.amazon.aws.hooks.glue import GlueDataQualityHook, GlueJob
 from airflow.providers.amazon.aws.hooks.glue_catalog import GlueCatalogHook
 from airflow.providers.amazon.aws.triggers.glue import (
     GlueCatalogPartitionTrigger,
+    GlueDataQualityRuleRecommendationRunCompleteTrigger,
     GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
-    GlueJobCompleteTrigger, GlueDataQualityRuleRecommendationRunCompleteTrigger,
+    GlueJobCompleteTrigger,
 )
 from airflow.triggers.base import TriggerEvent
 from tests.providers.amazon.aws.utils.test_waiter import assert_expected_waiter_type

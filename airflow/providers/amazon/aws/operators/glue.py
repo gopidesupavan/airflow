@@ -32,8 +32,9 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
 from airflow.providers.amazon.aws.triggers.glue import (
+    GlueDataQualityRuleRecommendationRunCompleteTrigger,
     GlueDataQualityRuleSetEvaluationRunCompleteTrigger,
-    GlueJobCompleteTrigger, GlueDataQualityRuleRecommendationRunCompleteTrigger,
+    GlueJobCompleteTrigger,
 )
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 
@@ -578,15 +579,12 @@ class GlueDataQualityRuleRecommendationRunOperator(AwsBaseOperator[GlueDataQuali
         self.aws_conn_id = aws_conn_id
 
     def execute(self, context: Context) -> str:
-
         glue_table = self.datasource.get("GlueTable", {})
 
         if not glue_table.get("DatabaseName") or not glue_table.get("TableName"):
             raise AttributeError("DataSource glue table must have DatabaseName and TableName")
 
-        self.log.info(
-            "Submitting AWS Glue data quality recommendation run with %s", self.datasource
-        )
+        self.log.info("Submitting AWS Glue data quality recommendation run with %s", self.datasource)
 
         try:
             response = self.hook.conn.start_data_quality_rule_recommendation_run(
@@ -599,7 +597,8 @@ class GlueDataQualityRuleRecommendationRunOperator(AwsBaseOperator[GlueDataQuali
         except ClientError as error:
             print(error)
             raise AirflowException(
-                f"AWS Glue data quality recommendation run failed: {error.response['Error']['Message']}")
+                f"AWS Glue data quality recommendation run failed: {error.response['Error']['Message']}"
+            )
 
         recommendation_run_id = response["RunId"]
 

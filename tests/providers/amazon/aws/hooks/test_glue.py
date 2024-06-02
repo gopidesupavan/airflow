@@ -628,7 +628,7 @@ class TestGlueDataQualityHook:
         glue_data_quality_hook_mock_conn.get_data_quality_rule_recommendation_run.return_value = {
             "RunId": self.RUN_ID,
             "DataSource": {"GlueTable": {"DatabaseName": "TestDB", "TableName": "TestTable"}},
-            "RecommendedRuleset": RULES
+            "RecommendedRuleset": RULES,
         }
 
         with caplog.at_level(logging.INFO, logger=self.glue.log.name):

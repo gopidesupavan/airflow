@@ -30,8 +30,9 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.links.glue import GlueJobRunDetailsLink
 from airflow.providers.amazon.aws.operators.glue import (
     GlueDataQualityOperator,
+    GlueDataQualityRuleRecommendationRunOperator,
     GlueDataQualityRuleSetEvaluationRunOperator,
-    GlueJobOperator, GlueDataQualityRuleRecommendationRunOperator,
+    GlueJobOperator,
 )
 
 if TYPE_CHECKING:
@@ -596,7 +597,9 @@ class TestGlueDataQualityRuleRecommendationRunOperator:
 
         err_response = {"Error": {"Code": "InvalidInputException", "Message": error_message}}
 
-        exception = boto3.client("glue").exceptions.ClientError(err_response, "StartDataQualityRuleRecommendationRun")
+        exception = boto3.client("glue").exceptions.ClientError(
+            err_response, "StartDataQualityRuleRecommendationRun"
+        )
         returned_exception = type(exception)
 
         glue_data_quality_mock_conn.exceptions.InvalidInputException = returned_exception
@@ -606,14 +609,14 @@ class TestGlueDataQualityRuleRecommendationRunOperator:
             task_id="stat_evaluation_run",
             datasource=self.DATA_SOURCE,
             role=self.ROLE,
-            recommendation_run_kwargs={
-                "CreatedRulesetName": created_ruleset_name
-            },
+            recommendation_run_kwargs={"CreatedRulesetName": created_ruleset_name},
         )
         operator.wait_for_completion = False
 
-        with pytest.raises(AirflowException,
-                           match=f"AWS Glue data quality recommendation run failed: Ruleset {created_ruleset_name} already exists"):
+        with pytest.raises(
+            AirflowException,
+            match=f"AWS Glue data quality recommendation run failed: Ruleset {created_ruleset_name} already exists",
+        ):
             operator.execute({})
 
     @pytest.mark.parametrize(

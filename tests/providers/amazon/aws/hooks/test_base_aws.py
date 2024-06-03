@@ -56,6 +56,7 @@ pytest.importorskip("aiobotocore")
 MOCK_AWS_CONN_ID = "mock-conn-id"
 MOCK_CONN_TYPE = "aws"
 MOCK_BOTO3_SESSION = mock.MagicMock(return_value="Mock boto3.session.Session")
+MOCK_AIO_SESSION = mock.MagicMock(return_value="Mock aiobotocore.session.AioSession")
 
 SAML_ASSERTION = """
 <?xml version="1.0"?>
@@ -224,7 +225,8 @@ class TestSessionFactory:
         mock_conn_config = AwsConnectionWrapper(conn=mock_conn)
         sf = BaseSessionFactory(conn=mock_conn_config, region_name=region_name, config=None)
         session = sf.create_session()
-
+        print(session)
+        print(MOCK_BOTO3_SESSION)
         expected_arguments = mock_conn_config.session_kwargs
         if region_name:
             expected_arguments["region_name"] = region_name
@@ -307,12 +309,12 @@ class TestSessionFactory:
         config_for_credentials_test,
     )
     @pytest.mark.parametrize("region_name", ["ap-southeast-2", "sa-east-1"])
-    async def test_async_get_credentials_from_role_arn(self, conn_id, conn_extra, region_name):
+    @mock.patch("aiobotocore.session.AioSession", new_callable=mock.PropertyMock, return_value=MOCK_AIO_SESSION)
+    async def test_async_get_credentials_from_role_arn(self, mock_aio_session, conn_id, conn_extra, region_name):
         """Test RefreshableCredentials with assume_role for async_conn."""
         with mock.patch(
             "airflow.providers.amazon.aws.hooks.base_aws.BaseSessionFactory._refresh_credentials"
         ) as mock_refresh:
-
             def side_effect():
                 return {
                     "access_key": "mock-AccessKeyId",
@@ -330,7 +332,9 @@ class TestSessionFactory:
             conn = AwsConnectionWrapper.from_connection_metadata(conn_id=conn_id, extra=extra)
             sf = BaseSessionFactory(conn=conn)
             session = sf.create_session(deferrable=True)
-            assert session.region_name == region_name
+
+            assert session == mock_aio_session
+            assert session.get_config_variable("region") == region_name
             # Validate method of botocore credentials provider.
             # It shouldn't be 'explicit' which refers in this case to initial credentials.
             credentials = await session.get_credentials()

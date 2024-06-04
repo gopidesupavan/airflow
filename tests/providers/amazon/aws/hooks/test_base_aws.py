@@ -25,9 +25,10 @@ from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
-from unittest.mock import MagicMock, PropertyMock, mock_open
+from unittest.mock import MagicMock, PropertyMock, mock_open, AsyncMock
 from uuid import UUID
 
+import aiobotocore.session
 import boto3
 import botocore
 import jinja2
@@ -56,7 +57,6 @@ pytest.importorskip("aiobotocore")
 MOCK_AWS_CONN_ID = "mock-conn-id"
 MOCK_CONN_TYPE = "aws"
 MOCK_BOTO3_SESSION = mock.MagicMock(return_value="Mock boto3.session.Session")
-MOCK_AIO_SESSION = mock.MagicMock(return_value="Mock aiobotocore.session.AioSession")
 
 SAML_ASSERTION = """
 <?xml version="1.0"?>
@@ -225,8 +225,7 @@ class TestSessionFactory:
         mock_conn_config = AwsConnectionWrapper(conn=mock_conn)
         sf = BaseSessionFactory(conn=mock_conn_config, region_name=region_name, config=None)
         session = sf.create_session()
-        print(session)
-        print(MOCK_BOTO3_SESSION)
+
         expected_arguments = mock_conn_config.session_kwargs
         if region_name:
             expected_arguments["region_name"] = region_name
@@ -249,6 +248,7 @@ class TestSessionFactory:
         session_profile = async_session.get_config_variable("profile")
 
         assert session_profile == profile_name
+        assert isinstance(async_session, aiobotocore.session.AioSession)
 
     @pytest.mark.asyncio
     async def test_async_create_a_session_from_credentials_without_token(self):
@@ -309,8 +309,7 @@ class TestSessionFactory:
         config_for_credentials_test,
     )
     @pytest.mark.parametrize("region_name", ["ap-southeast-2", "sa-east-1"])
-    @mock.patch("aiobotocore.session.AioSession", new_callable=mock.PropertyMock, return_value=MOCK_AIO_SESSION)
-    async def test_async_get_credentials_from_role_arn(self, mock_aio_session, conn_id, conn_extra, region_name):
+    async def test_async_get_credentials_from_role_arn(self, conn_id, conn_extra, region_name):
         """Test RefreshableCredentials with assume_role for async_conn."""
         with mock.patch(
             "airflow.providers.amazon.aws.hooks.base_aws.BaseSessionFactory._refresh_credentials"
@@ -333,7 +332,7 @@ class TestSessionFactory:
             sf = BaseSessionFactory(conn=conn)
             session = sf.create_session(deferrable=True)
 
-            assert session == mock_aio_session
+            assert isinstance(session, aiobotocore.session.AioSession)
             assert session.get_config_variable("region") == region_name
             # Validate method of botocore credentials provider.
             # It shouldn't be 'explicit' which refers in this case to initial credentials.

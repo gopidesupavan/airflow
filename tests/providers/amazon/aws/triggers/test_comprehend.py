@@ -22,8 +22,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
-from airflow.providers.amazon.aws.triggers.comprehend import \
-    ComprehendPiiEntitiesDetectionJobCompletedTrigger, ComprehendCreateDocumentClassifierCompletedTrigger
+from airflow.providers.amazon.aws.triggers.comprehend import (
+    ComprehendCreateDocumentClassifierCompletedTrigger,
+    ComprehendPiiEntitiesDetectionJobCompletedTrigger,
+)
 from airflow.triggers.base import TriggerEvent
 from tests.providers.amazon.aws.utils.test_waiter import assert_expected_waiter_type
 
@@ -70,12 +72,15 @@ class TestComprehendPiiEntitiesDetectionJobCompletedTrigger(TestBaseComprehendTr
 
 class TestComprehendCreateDocumentClassifierCompletedTrigger:
     EXPECTED_WAITER_NAME = "create_document_classifier_complete"
-    DOCUMENT_CLASSIFIER_ARN = "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
+    DOCUMENT_CLASSIFIER_ARN = (
+        "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
+    )
 
     def test_serialization(self):
         """Assert that arguments and classpath are correctly serialized."""
         trigger = ComprehendCreateDocumentClassifierCompletedTrigger(
-            document_classifier_arn=self.DOCUMENT_CLASSIFIER_ARN)
+            document_classifier_arn=self.DOCUMENT_CLASSIFIER_ARN
+        )
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "ComprehendCreateDocumentClassifierCompletedTrigger"
         assert kwargs.get("document_classifier_arn") == self.DOCUMENT_CLASSIFIER_ARN
@@ -86,11 +91,15 @@ class TestComprehendCreateDocumentClassifierCompletedTrigger:
     async def test_run_success(self, mock_async_conn, mock_get_waiter):
         mock_async_conn.__aenter__.return_value = mock.MagicMock()
         mock_get_waiter().wait = AsyncMock()
-        trigger = ComprehendCreateDocumentClassifierCompletedTrigger(document_classifier_arn=self.DOCUMENT_CLASSIFIER_ARN)
+        trigger = ComprehendCreateDocumentClassifierCompletedTrigger(
+            document_classifier_arn=self.DOCUMENT_CLASSIFIER_ARN
+        )
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "success", "document_classifier_arn": self.DOCUMENT_CLASSIFIER_ARN})
+        assert response == TriggerEvent(
+            {"status": "success", "document_classifier_arn": self.DOCUMENT_CLASSIFIER_ARN}
+        )
         assert_expected_waiter_type(mock_get_waiter, self.EXPECTED_WAITER_NAME)
         mock_get_waiter().wait.assert_called_once()

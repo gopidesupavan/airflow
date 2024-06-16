@@ -23,8 +23,10 @@ from airflow.configuration import conf
 from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
-from airflow.providers.amazon.aws.triggers.comprehend import \
-    ComprehendPiiEntitiesDetectionJobCompletedTrigger, ComprehendCreateDocumentClassifierCompletedTrigger
+from airflow.providers.amazon.aws.triggers.comprehend import (
+    ComprehendCreateDocumentClassifierCompletedTrigger,
+    ComprehendPiiEntitiesDetectionJobCompletedTrigger,
+)
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.utils.timezone import utcnow
@@ -242,12 +244,14 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
         "data_access_role_arn",
         "language_code",
         "output_data_config",
-        "document_classifier_kwargs"
+        "document_classifier_kwargs",
     )
 
-    template_fields_renderers: dict = {"input_data_config": "json",
-                                       "output_data_config": "json",
-                                       "document_classifier_kwargs": "json"}
+    template_fields_renderers: dict = {
+        "input_data_config": "json",
+        "output_data_config": "json",
+        "document_classifier_kwargs": "json",
+    }
 
     def __init__(
         self,
@@ -280,7 +284,6 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
         self.deferrable = deferrable
 
     def execute(self, context: Context) -> str:
-
         if self.output_data_config:
             self.document_classifier_kwargs["OutputDataConfig"] = self.output_data_config
 
@@ -290,7 +293,7 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
             Mode=self.mode,
             DataAccessRoleArn=self.data_access_role_arn,
             LanguageCode=self.language_code,
-            **self.document_classifier_kwargs
+            **self.document_classifier_kwargs,
         )["DocumentClassifierArn"]
 
         message_description = f"document classifier {document_classifier_arn} to complete."
@@ -314,8 +317,8 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
             )
 
             self.hook.validate_document_classifier_training_status(
-                document_classifier_arn=document_classifier_arn,
-                fail_on_warnings=self.fail_on_warnings)
+                document_classifier_arn=document_classifier_arn, fail_on_warnings=self.fail_on_warnings
+            )
 
         return document_classifier_arn
 
@@ -325,7 +328,8 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
             raise AirflowException("Error while running comprehend create document classifier: %s", event)
 
         self.hook.validate_document_classifier_training_status(
-            document_classifier_arn=event["document_classifier_arn"], fail_on_warnings=self.fail_on_warnings)
+            document_classifier_arn=event["document_classifier_arn"], fail_on_warnings=self.fail_on_warnings
+        )
 
         self.log.info("Comprehend document classifier `%s` complete.", event["document_classifier_arn"])
 

@@ -23,7 +23,8 @@ import pytest
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 from airflow.providers.amazon.aws.sensors.comprehend import (
-    ComprehendStartPiiEntitiesDetectionJobCompletedSensor, ComprehendCreateDocumentClassifierCompletedSensor,
+    ComprehendCreateDocumentClassifierCompletedSensor,
+    ComprehendStartPiiEntitiesDetectionJobCompletedSensor,
 )
 
 
@@ -96,17 +97,21 @@ class TestComprehendStartPiiEntitiesDetectionJobCompletedSensor:
 
 class TestComprehendCreateDocumentClassifierCompletedSensor:
     SENSOR = ComprehendCreateDocumentClassifierCompletedSensor
-    DOCUMENT_CLASSIFIER_ARN = "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
-    EVALUATION_METRICS = {"EvaluationMetrics": {
-        "Accuracy": 1,
-        "Precision": 1,
-        "Recall": 1,
-        "F1Score": 1,
-        "MicroPrecision": 1,
-        "MicroRecall": 1,
-        "MicroF1Score": 1,
-        "HammingLoss": 0
-    }}
+    DOCUMENT_CLASSIFIER_ARN = (
+        "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
+    )
+    EVALUATION_METRICS = {
+        "EvaluationMetrics": {
+            "Accuracy": 1,
+            "Precision": 1,
+            "Recall": 1,
+            "F1Score": 1,
+            "MicroPrecision": 1,
+            "MicroRecall": 1,
+            "MicroF1Score": 1,
+            "HammingLoss": 0,
+        }
+    }
 
     def setup_method(self):
         self.default_op_kwargs = dict(
@@ -141,18 +146,23 @@ class TestComprehendCreateDocumentClassifierCompletedSensor:
         "state, message, output",
         [
             pytest.param("TRAINED", "", "s3://test-output", id="training succeeded"),
-            pytest.param("TRAINED_WITH_WARNING",
-                         "Unable to parse some documents. See details in the output S3 location",
-                         "s3://test-output", id="trained with warning"),
+            pytest.param(
+                "TRAINED_WITH_WARNING",
+                "Unable to parse some documents. See details in the output S3 location",
+                "s3://test-output",
+                id="trained with warning",
+            ),
         ],
     )
     @mock.patch.object(ComprehendHook, "conn")
     def test_poke_success_state(self, mock_conn, state, message, output):
         mock_conn.describe_document_classifier.return_value = {
-            "DocumentClassifierProperties": {"Status": state,
-                                             "Message": message,
-                                             "OutputDataConfig": {"S3Uri": output},
-                                             "ClassifierMetadata": self.EVALUATION_METRICS}
+            "DocumentClassifierProperties": {
+                "Status": state,
+                "Message": message,
+                "OutputDataConfig": {"S3Uri": output},
+                "ClassifierMetadata": self.EVALUATION_METRICS,
+            }
         }
 
         assert self.sensor.poke({}) is True

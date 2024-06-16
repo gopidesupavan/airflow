@@ -25,7 +25,8 @@ from moto import mock_aws
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 from airflow.providers.amazon.aws.operators.comprehend import (
     ComprehendBaseOperator,
-    ComprehendStartPiiEntitiesDetectionJobOperator, ComprehendCreateDocumentClassifierOperator,
+    ComprehendCreateDocumentClassifierOperator,
+    ComprehendStartPiiEntitiesDetectionJobOperator,
 )
 from airflow.utils.types import NOTSET
 
@@ -164,19 +165,20 @@ class TestComprehendStartPiiEntitiesDetectionJobOperator:
 
 
 class TestComprehendCreateDocumentClassifierOperator:
-    CLASSIFIER_ARN = "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
+    CLASSIFIER_ARN = (
+        "arn:aws:comprehend:us-east-1:123456789012:document-classifier/insurence-classifier/version/v1"
+    )
     ROLE_ARN = "arn:aws:iam::123456789012:role/ComprehendExecutionRole"
-    INPUT_DATA_CONFIG = {"DataFormat": "COMPREHEND_CSV",
-                         "S3Uri": "s3://test/native-doc.csv",
-                         "DocumentType": "SEMI_STRUCTURED_DOCUMENT",
-                         "Documents": {
-                             "S3Uri": "s3://test/input-docs/"
-                         },
-                         "DocumentReaderConfig": {
-                             "DocumentReadAction": "TEXTRACT_DETECT_DOCUMENT_TEXT",
-                             "DocumentReadMode": "SERVICE_DEFAULT"
-                         }
-                         }
+    INPUT_DATA_CONFIG = {
+        "DataFormat": "COMPREHEND_CSV",
+        "S3Uri": "s3://test/native-doc.csv",
+        "DocumentType": "SEMI_STRUCTURED_DOCUMENT",
+        "Documents": {"S3Uri": "s3://test/input-docs/"},
+        "DocumentReaderConfig": {
+            "DocumentReadAction": "TEXTRACT_DETECT_DOCUMENT_TEXT",
+            "DocumentReadMode": "SERVICE_DEFAULT",
+        },
+    }
 
     @pytest.fixture
     def mock_conn(self) -> Generator[BaseAwsConnection, None, None]:
@@ -199,7 +201,7 @@ class TestComprehendCreateDocumentClassifierOperator:
             output_data_config={"S3Uri": "s3://test/training_output/"},
             language_code="en",
             mode="MULTI_CLASS",
-            document_classifier_kwargs={"VersionName": "v1"}
+            document_classifier_kwargs={"VersionName": "v1"},
         )
         self.operator.defer = mock.MagicMock()
 
@@ -223,7 +225,7 @@ class TestComprehendCreateDocumentClassifierOperator:
             output_data_config={"S3Uri": "s3://test/training_output/"},
             language_code="en",
             mode="MULTI_CLASS",
-            document_classifier_kwargs={"VersionName": "v1"}
+            document_classifier_kwargs={"VersionName": "v1"},
         )
         self.op.wait_for_completion = False
         self.op.execute({})
@@ -234,7 +236,7 @@ class TestComprehendCreateDocumentClassifierOperator:
             OutputDataConfig={"S3Uri": "s3://test/training_output/"},
             LanguageCode="en",
             Mode="MULTI_CLASS",
-            VersionName="v1"
+            VersionName="v1",
         )
 
     @pytest.mark.parametrize(

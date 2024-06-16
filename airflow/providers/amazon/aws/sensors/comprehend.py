@@ -23,8 +23,10 @@ from airflow.configuration import conf
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.comprehend import ComprehendHook
 from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
-from airflow.providers.amazon.aws.triggers.comprehend import \
-    ComprehendPiiEntitiesDetectionJobCompletedTrigger, ComprehendCreateDocumentClassifierCompletedTrigger
+from airflow.providers.amazon.aws.triggers.comprehend import (
+    ComprehendCreateDocumentClassifierCompletedTrigger,
+    ComprehendPiiEntitiesDetectionJobCompletedTrigger,
+)
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 
 if TYPE_CHECKING:
@@ -178,8 +180,16 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
 
     aws_hook_class = ComprehendHook
 
-    INTERMEDIATE_STATES: tuple[str, ...] = ("SUBMITTED", "TRAINING",)
-    FAILURE_STATES: tuple[str, ...] = ("DELETING", "STOP_REQUESTED", "STOPPED", "IN_ERROR",)
+    INTERMEDIATE_STATES: tuple[str, ...] = (
+        "SUBMITTED",
+        "TRAINING",
+    )
+    FAILURE_STATES: tuple[str, ...] = (
+        "DELETING",
+        "STOP_REQUESTED",
+        "STOPPED",
+        "IN_ERROR",
+    )
     SUCCESS_STATES: tuple[str, ...] = ("TRAINED", "TRAINED_WITH_WARNING")
     FAILURE_MESSAGE = "Comprehend document classifier failed."
 
@@ -217,9 +227,9 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
             super().execute(context=context)
 
     def poke(self, context: Context, **kwargs) -> bool:
-
         status = self.hook.conn.describe_document_classifier(
-            DocumentClassifierArn=self.document_classifier_arn)["DocumentClassifierProperties"]["Status"]
+            DocumentClassifierArn=self.document_classifier_arn
+        )["DocumentClassifierProperties"]["Status"]
 
         if status in self.FAILURE_STATES:
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
@@ -229,7 +239,8 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
 
         if status in self.SUCCESS_STATES:
             self.hook.validate_document_classifier_training_status(
-                document_classifier_arn=self.document_classifier_arn, fail_on_warnings=self.fail_on_warnings)
+                document_classifier_arn=self.document_classifier_arn, fail_on_warnings=self.fail_on_warnings
+            )
 
             self.log.info("Comprehend document classifier `%s` complete.", self.document_classifier_arn)
 

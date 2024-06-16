@@ -49,13 +49,11 @@ class TestComprehendHook:
                     "DataFormat": "COMPREHEND_CSV",
                     "S3Uri": "s3://test/native-doc.csv",
                     "DocumentType": "SEMI_STRUCTURED_DOCUMENT",
-                    "Documents": {
-                        "S3Uri": "s3://test/input-docs/"
-                    },
+                    "Documents": {"S3Uri": "s3://test/input-docs/"},
                     "DocumentReaderConfig": {
                         "DocumentReadAction": "TEXTRACT_DETECT_DOCUMENT_TEXT",
-                        "DocumentReadMode": "SERVICE_DEFAULT"
-                    }
+                        "DocumentReadMode": "SERVICE_DEFAULT",
+                    },
                 },
                 "OutputDataConfig": {
                     "S3Uri": "s3://test/training_output/183167903796-CLR-b56fd4cf0b5bcc11c9409dfb431cd585/output/output.tar.gz"
@@ -72,12 +70,12 @@ class TestComprehendHook:
                         "MicroPrecision": 1,
                         "MicroRecall": 1,
                         "MicroF1Score": 1,
-                        "HammingLoss": 0
-                    }
+                        "HammingLoss": 0,
+                    },
                 },
                 "DataAccessRoleArn": "arn:aws:iam::123456789012:role/ComprehendExecutionRole",
                 "Mode": "MULTI_CLASS",
-                "VersionName": "v1"
+                "VersionName": "v1",
             }
         }
         classifier_arn = "arn:aws:comprehend:us-east-1:123456789012:document-classifier/docs-clasf/version/v1"
@@ -99,13 +97,11 @@ class TestComprehendHook:
                     "DataFormat": "COMPREHEND_CSV",
                     "S3Uri": "s3://test/native-doc.csv",
                     "DocumentType": "SEMI_STRUCTURED_DOCUMENT",
-                    "Documents": {
-                        "S3Uri": "s3://test/input-docs/"
-                    },
+                    "Documents": {"S3Uri": "s3://test/input-docs/"},
                     "DocumentReaderConfig": {
                         "DocumentReadAction": "TEXTRACT_DETECT_DOCUMENT_TEXT",
-                        "DocumentReadMode": "SERVICE_DEFAULT"
-                    }
+                        "DocumentReadMode": "SERVICE_DEFAULT",
+                    },
                 },
                 "OutputDataConfig": {
                     "S3Uri": "s3://test/training_output/183167903796-CLR-b56fd4cf0b5bcc11c9409dfb431cd585/output/output.tar.gz"
@@ -122,15 +118,18 @@ class TestComprehendHook:
                         "MicroPrecision": 1,
                         "MicroRecall": 1,
                         "MicroF1Score": 1,
-                        "HammingLoss": 0
-                    }
+                        "HammingLoss": 0,
+                    },
                 },
                 "DataAccessRoleArn": "arn:aws:iam::123456789012:role/ComprehendExecutionRole",
                 "Mode": "MULTI_CLASS",
-                "VersionName": "v1"
+                "VersionName": "v1",
             }
         }
         classifier_arn = "arn:aws:comprehend:us-east-1:123456789012:document-classifier/docs-clasf/version/v1"
-        with pytest.raises(AirflowException, match="Warnings in AWS Comprehend document classifier training."):
+        with pytest.raises(
+            AirflowException, match="Warnings in AWS Comprehend document classifier training."
+        ):
             ComprehendHook().validate_document_classifier_training_status(
-                document_classifier_arn=classifier_arn, fail_on_warnings=True)
+                document_classifier_arn=classifier_arn, fail_on_warnings=True
+            )

@@ -149,9 +149,12 @@ def copy_data_to_s3(bucket: str, sources: list[dict], prefix: str, number_of_cop
             urlretrieve(source["url"], data_file.name)
             file_name, file_type = os.path.splitext(os.path.basename(data_file.name))
 
-            [S3Hook().conn.upload_file(
-                Filename=data_file.name, Bucket=bucket, Key=f"{prefix}/{file_name}-{counter}{file_type}"
-            ) for counter in range(number_of_copies)]
+            [
+                S3Hook().conn.upload_file(
+                    Filename=data_file.name, Bucket=bucket, Key=f"{prefix}/{file_name}-{counter}{file_type}"
+                )
+                for counter in range(number_of_copies)
+            ]
 
     # Revert the monkey patch.
     tempfile._get_candidate_names = backup_get_candidate_names  # type: ignore[attr-defined]

@@ -43,10 +43,10 @@ class ComprehendHook(AwsBaseHook):
 
         """
         Logs the Information about the document classifier
-            NumberOfLabels
-            NumberOfTrainedDocuments
-            NumberOfTestDocuments
-            EvaluationMetrics
+        NumberOfLabels
+        NumberOfTrainedDocuments
+        NumberOfTestDocuments
+        EvaluationMetrics
         """
 
         response = self.conn.describe_document_classifier(DocumentClassifierArn=document_classifier_arn)

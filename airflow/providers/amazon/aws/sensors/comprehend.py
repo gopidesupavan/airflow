@@ -27,7 +27,6 @@ from airflow.providers.amazon.aws.triggers.comprehend import (
     ComprehendCreateDocumentClassifierCompletedTrigger,
     ComprehendPiiEntitiesDetectionJobCompletedTrigger,
 )
-from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 
 if TYPE_CHECKING:
@@ -235,8 +234,10 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
         )["DocumentClassifierProperties"]["Status"]
 
         self.log.info(
-            "Poking for AWS Comprehend document classifier arn: %s status: %s", self.document_classifier_arn,
-            status)
+            "Poking for AWS Comprehend document classifier arn: %s status: %s",
+            self.document_classifier_arn,
+            status,
+        )
 
         if status in self.FAILURE_STATES:
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
@@ -254,4 +255,3 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
             return True
 
         return False
-

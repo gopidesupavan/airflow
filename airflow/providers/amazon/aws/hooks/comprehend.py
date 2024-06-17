@@ -40,13 +40,14 @@ class ComprehendHook(AwsBaseHook):
     def validate_document_classifier_training_status(
         self, document_classifier_arn: str, fail_on_warnings: bool = False
     ) -> None:
-
         """
         Logs the Information about the document classifier
+
         NumberOfLabels
         NumberOfTrainedDocuments
         NumberOfTestDocuments
         EvaluationMetrics
+        
         """
 
         response = self.conn.describe_document_classifier(DocumentClassifierArn=document_classifier_arn)

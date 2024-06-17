@@ -117,6 +117,7 @@ class TestComprehendCreateDocumentClassifierCompletedSensor:
         self.default_op_kwargs = dict(
             task_id="test_create_document_classifier_sensor",
             document_classifier_arn=self.DOCUMENT_CLASSIFIER_ARN,
+            fail_on_warnings=False,
             poke_interval=5,
             max_retries=1,
         )

@@ -27,6 +27,7 @@ from airflow.providers.amazon.aws.triggers.comprehend import (
     ComprehendCreateDocumentClassifierCompletedTrigger,
     ComprehendPiiEntitiesDetectionJobCompletedTrigger,
 )
+from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 
 if TYPE_CHECKING:
@@ -203,6 +204,7 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
         max_retries: int = 75,
         poke_interval: int = 120,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
+        aws_conn_id: str | None = "aws_default",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -211,6 +213,7 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
         self.max_retries = max_retries
         self.poke_interval = poke_interval
         self.deferrable = deferrable
+        self.aws_conn_id = aws_conn_id
 
     def execute(self, context: Context) -> Any:
         if self.deferrable:
@@ -231,6 +234,10 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
             DocumentClassifierArn=self.document_classifier_arn
         )["DocumentClassifierProperties"]["Status"]
 
+        self.log.info(
+            "Poking for AWS Comprehend document classifier arn: %s status: %s", self.document_classifier_arn,
+            status)
+
         if status in self.FAILURE_STATES:
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
             if self.soft_fail:
@@ -247,3 +254,4 @@ class ComprehendCreateDocumentClassifierCompletedSensor(AwsBaseSensor[Comprehend
             return True
 
         return False
+

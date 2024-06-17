@@ -256,7 +256,7 @@ class ComprehendCreateDocumentClassifierOperator(AwsBaseOperator[ComprehendHook]
     def __init__(
         self,
         document_classifier_name: str,
-        input_data_config: dict,
+        input_data_config: dict[str, Any],
         mode: str,
         data_access_role_arn: str,
         language_code: str,

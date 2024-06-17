@@ -49,7 +49,6 @@ class ComprehendHook(AwsBaseHook):
         EvaluationMetrics
 
         """
-
         response = self.conn.describe_document_classifier(DocumentClassifierArn=document_classifier_arn)
 
         status = response["DocumentClassifierProperties"]["Status"]

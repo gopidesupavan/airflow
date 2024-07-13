@@ -40,14 +40,13 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
     @staticmethod
     def get_waiter_details(application_name: str, operation_id: str) -> tuple[str, dict[str, str], list[str]]:
         """
-
         `describe_application_operation` API provides more detailed information for starting, updating, or
+
         stopping the application. However, it requires a minimum of boto3==1.34.134. In this case, we will
         fall back to using the default `describe_application` API to monitor the starting, updating, or
         stopping of the application.
 
         """
-
         waiter_name = "application_operation_complete" if operation_id else "application_describe_complete"
         waiter_args = {
             "ApplicationName": application_name,

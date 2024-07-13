@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Sequence, TYPE_CHECKING
 
 from botocore.exceptions import ClientError
 
@@ -29,7 +29,10 @@ from airflow.providers.amazon.aws.triggers.kinesis_analytics import (
 )
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
-from airflow.utils.context import Context
+
+if TYPE_CHECKING:
+
+    from airflow.utils.context import Context
 
 
 class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyticsV2Hook]):

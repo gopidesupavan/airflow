@@ -24,12 +24,12 @@ from airflow.configuration import conf
 from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
 from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
-from airflow.providers.amazon.aws.triggers.kinesis_analytics import \
-    KinesisAnalyticsV2ApplicationOperationCompleteTrigger
+from airflow.providers.amazon.aws.triggers.kinesis_analytics import (
+    KinesisAnalyticsV2ApplicationOperationCompleteTrigger,
+)
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 from airflow.utils.context import Context
-from airflow.utils.helpers import prune_dict
 
 
 class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyticsV2Hook]):
@@ -69,7 +69,7 @@ class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyti
         "run_time_environment",
         "service_execution_role",
         "create_application_kwargs",
-        "application_description"
+        "application_description",
     )
     template_fields_renderers: dict = {
         "create_application_kwargs": "json",
@@ -98,7 +98,6 @@ class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyti
         self.waiter_max_attempts = waiter_max_attempts
 
     def execute(self, context: Context) -> str:
-
         self.log.info("Creating AWS Managed Service for Apache Flink application %s.", self.application_name)
         try:
             response = self.hook.conn.create_application(
@@ -106,7 +105,7 @@ class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyti
                 ApplicationDescription=self.application_description,
                 RuntimeEnvironment=self.run_time_environment,
                 ServiceExecutionRole=self.service_execution_role,
-                **self.create_application_kwargs
+                **self.create_application_kwargs,
             )
         except ClientError as error:
             raise AirflowException(
@@ -114,16 +113,20 @@ class KinesisAnalyticsV2CreateApplicationOperator(AwsBaseOperator[KinesisAnalyti
             )
 
         if self.wait_for_completion:
-            self.log.info("Waiting for AWS Managed Service for Apache Flink application to create %s",
-                          response["ApplicationARN"])
+            self.log.info(
+                "Waiting for AWS Managed Service for Apache Flink application to create %s",
+                response["ApplicationARN"],
+            )
 
             self.hook.get_waiter("create_application_complete").wait(
                 ApplicationName=self.application_name,
                 WaiterConfig={"Delay": self.waiter_delay, "MaxAttempts": self.waiter_max_attempts},
             )
 
-        self.log.info("Completed creation of AWS Managed Service for Apache Flink application %s.",
-                      self.application_name)
+        self.log.info(
+            "Completed creation of AWS Managed Service for Apache Flink application %s.",
+            self.application_name,
+        )
 
         return response["ApplicationARN"]
 
@@ -156,6 +159,7 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
     :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
         https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
     """
+
     aws_hook_class = KinesisAnalyticsV2Hook
 
     template_fields: Sequence[str] = aws_template_fields(
@@ -174,7 +178,7 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
         waiter_delay: int = 60,
         waiter_max_attempts: int = 20,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.application_name = application_name
@@ -190,23 +194,20 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
         try:
             self.log.info("Starting %s.", msg, self.application_name)
             response = self.hook.conn.start_application(
-                ApplicationName=self.application_name,
-                RunConfiguration=self.run_configuration
+                ApplicationName=self.application_name, RunConfiguration=self.run_configuration
             )
         except ClientError as error:
             raise AirflowException(
                 f"{msg} {self.application_name} start failed: {error.response['Error']['Message']}"
             )
 
-        describe_response = self.hook.conn.describe_application(
-            ApplicationName=self.application_name
-        )
+        describe_response = self.hook.conn.describe_application(ApplicationName=self.application_name)
 
         operation_id = response.get("OperationId")
 
         waiter_name, waiter_args, status_queries = self.hook.get_waiter_details(
-            application_name=self.application_name,
-            operation_id=operation_id)
+            application_name=self.application_name, operation_id=operation_id
+        )
 
         if self.deferrable:
             self.log.info("Deferring for %s to start: %s.", msg, self.application_name)
@@ -224,11 +225,10 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
                     verify=self.verify,
                     botocore_config=self.botocore_config,
                 ),
-                method_name="execute_complete"
+                method_name="execute_complete",
             )
         if self.wait_for_completion:
-            self.log.info("Waiting for %s to start: %s.",
-                          msg, self.application_name)
+            self.log.info("Waiting for %s to start: %s.", msg, self.application_name)
 
             self.hook.get_waiter(waiter_name).wait(
                 **waiter_args,
@@ -247,17 +247,21 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
         )
 
         if event["status"] != "success":
-            error = self.hook.conn.describe_application_operation(
-                ApplicationName=event["application_name"],
-                OperationId=event["operation_id"]
-            ) if event.get("operation_id") else event
+            error = (
+                self.hook.conn.describe_application_operation(
+                    ApplicationName=event["application_name"], OperationId=event["operation_id"]
+                )
+                if event.get("operation_id")
+                else event
+            )
 
             raise AirflowException(
-                "Error while starting AWS Managed Service for Apache Flink application error: %s.", error)
+                "Error while starting AWS Managed Service for Apache Flink application error: %s.", error
+            )
 
         self.log.info(
             "AWS Managed Service for Apache Flink application %s started successfully %s",
-            self.application_name
+            self.application_name,
         )
 
         return response["ApplicationDetail"]["ApplicationARN"]
@@ -292,6 +296,7 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
     :param botocore_config: Configuration dictionary (key-values) for botocore client. See:
         https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
     """
+
     aws_hook_class = KinesisAnalyticsV2Hook
 
     template_fields: Sequence[str] = aws_template_fields(
@@ -307,7 +312,7 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
         waiter_delay: int = 60,
         waiter_max_attempts: int = 20,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.application_name = application_name
@@ -318,14 +323,12 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
         self.deferrable = deferrable
 
     def execute(self, context: Context) -> str:
-
         msg = "AWS Managed Service for Apache Flink application"
         try:
             self.log.info("Stopping %s.", msg, self.application_name)
 
             response = self.hook.conn.stop_application(
-                ApplicationName=self.application_name,
-                Force=self.force
+                ApplicationName=self.application_name, Force=self.force
             )
         except ClientError as error:
             raise AirflowException(
@@ -333,13 +336,11 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
             )
 
         operation_id = response.get("OperationId")
-        describe_response = self.hook.conn.describe_application(
-            ApplicationName=self.application_name
-        )
+        describe_response = self.hook.conn.describe_application(ApplicationName=self.application_name)
 
         waiter_name, waiter_args, status_queries = self.hook.get_waiter_details(
-            application_name=self.application_name,
-            operation_id=operation_id)
+            application_name=self.application_name, operation_id=operation_id
+        )
 
         if self.deferrable:
             self.log.info("Deferring for %s to stop: %s.", msg, self.application_name)
@@ -357,11 +358,10 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
                     verify=self.verify,
                     botocore_config=self.botocore_config,
                 ),
-                method_name="execute_complete"
+                method_name="execute_complete",
             )
         if self.wait_for_completion:
-            self.log.info("Waiting for %s to stop: %s.",
-                          msg, self.application_name)
+            self.log.info("Waiting for %s to stop: %s.", msg, self.application_name)
 
             self.hook.get_waiter(waiter_name).wait(
                 **waiter_args,
@@ -387,17 +387,21 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
             )
 
             if event["status"] != "success":
-                error = self.hook.conn.describe_application_operation(
-                    ApplicationName=event["application_name"],
-                    OperationId=event["operation_id"]
-                ) if event.get("operation_id") else event
+                error = (
+                    self.hook.conn.describe_application_operation(
+                        ApplicationName=event["application_name"], OperationId=event["operation_id"]
+                    )
+                    if event.get("operation_id")
+                    else event
+                )
 
                 raise AirflowException(
-                    "Error while stopping AWS Managed Service for Apache Flink application: %s.", error)
+                    "Error while stopping AWS Managed Service for Apache Flink application: %s.", error
+                )
 
             self.log.info(
                 "AWS Managed Service for Apache Flink application %s stopped successfully %s",
-                self.application_name
+                self.application_name,
             )
 
         return response["ApplicationDetail"]["ApplicationARN"]

@@ -41,7 +41,7 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
         waiter_name: str,
         waiter_args: dict[str, Any],
         status_queries: list[str],
-        operation_id: str = None,
+        operation_id: str,
         waiter_delay: int = 120,
         waiter_max_attempts: int = 75,
         aws_conn_id: str | None = "aws_default",

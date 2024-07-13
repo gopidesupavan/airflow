@@ -15,9 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from typing import Any, Tuple, Dict, List
+from __future__ import annotations
 
-from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 
@@ -40,23 +39,22 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
 
     @staticmethod
     def get_waiter_details(application_name: str, operation_id: str) -> tuple[str, dict[str, str], list[str]]:
-
         """
         The `describe_application_operation` API provides more detailed information for starting, updating, or
         stopping the application. However, it requires a minimum of boto3==1.34.134. In this case, we will
         fall back to using the default `describe_application` API to monitor the starting, updating, or
         stopping of the application.
         """
-
         waiter_name = "application_operation_complete" if operation_id else "application_describe_complete"
-        waiter_args = {"ApplicationName": application_name,
-                       **({"OperationId": operation_id} if operation_id else {})
-                       }
+        waiter_args = {
+            "ApplicationName": application_name,
+            **({"OperationId": operation_id} if operation_id else {}),
+        }
 
         status_queries = [
             "ApplicationOperationInfoDetails.OperationStatus"
-            if operation_id else
-            "ApplicationDetail.ApplicationStatus"
+            if operation_id
+            else "ApplicationDetail.ApplicationStatus"
         ]
 
         return waiter_name, waiter_args, status_queries

@@ -17,6 +17,7 @@
 # under the License.
 from __future__ import annotations
 
+from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 
@@ -38,7 +39,7 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
         super().__init__(*args, **kwargs)
 
     @staticmethod
-    def get_waiter_details(application_name: str, operation_id: str) -> tuple[str, dict[str, str], list[str]]:
+    def get_waiter_details(application_name: str, operation_id: str) -> tuple[dict[str, str], list[str]]:
         """
         Set Waiter details for operations start/stop/update applications.
 
@@ -48,7 +49,6 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
         stopping of the application.
 
         """
-        waiter_name = "application_operation_complete" if operation_id else "application_describe_complete"
         waiter_args = {
             "ApplicationName": application_name,
             **({"OperationId": operation_id} if operation_id else {}),
@@ -60,4 +60,33 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
             else "ApplicationDetail.ApplicationStatus"
         ]
 
-        return waiter_name, waiter_args, status_queries
+        return waiter_args, status_queries
+
+    def validate_application_operation(self, event: dict) -> None:
+        application_name = event["application_name"]
+        operation_id = event["operation_id"]
+
+        error = (
+            self.conn.describe_application_operation(
+                ApplicationName=application_name,
+                OperationId=operation_id,
+            )["ApplicationOperationInfoDetails"]
+            if operation_id
+            else event
+        )
+        operation_name = error.get("Operation")
+        rollback_operation_id = error.get("OperationFailureDetails", {}).get("RollbackOperationId")
+
+        if rollback_operation_id:
+            self.log.info(
+                "AWS Managed Service for Apache Flink application %s operation %s failed, rollback started, "
+                "use this operationId %s to monitor rollback status",
+                application_name,
+                operation_name,
+                rollback_operation_id)
+
+        raise AirflowException(
+            "Error occurred AWS Managed Service for Apache Flink application %s: %s.",
+            application_name,
+            error
+        )

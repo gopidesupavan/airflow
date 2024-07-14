@@ -83,10 +83,9 @@ class KinesisAnalyticsV2Hook(AwsBaseHook):
                 "use this operationId %s to monitor rollback status",
                 application_name,
                 operation_name,
-                rollback_operation_id)
+                rollback_operation_id,
+            )
 
         raise AirflowException(
-            "Error occurred AWS Managed Service for Apache Flink application %s: %s.",
-            application_name,
-            error
+            "Error occurred AWS Managed Service for Apache Flink application %s: %s.", application_name, error
         )

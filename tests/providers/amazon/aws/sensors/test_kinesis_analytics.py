@@ -14,14 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
+
 from unittest import mock
 
 import pytest
 
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
-from airflow.providers.amazon.aws.sensors.kinesis_analytics import \
-    KinesisAnalyticsV2StartApplicationCompletedSensor, KinesisAnalyticsV2StopApplicationCompletedSensor
+from airflow.providers.amazon.aws.sensors.kinesis_analytics import (
+    KinesisAnalyticsV2StartApplicationCompletedSensor,
+    KinesisAnalyticsV2StopApplicationCompletedSensor,
+)
 
 
 class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
@@ -62,7 +66,8 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_poke_success_state(self, mock_conn, state):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
 
         assert self.sensor.poke({}) is True
 
@@ -70,7 +75,8 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_intermediate_state(self, mock_conn, state):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
         assert self.sensor.poke({}) is False
 
     @pytest.mark.parametrize(
@@ -84,16 +90,13 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_poke_failure_states(self, mock_conn, state, soft_fail, expected_exception):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
         mock_conn.describe_application_operation.return_value = {
             "ApplicationOperationInfoDetails": {
                 "Operation": "StartApplication",
                 "OperationStatus": "FAILED",
-                "OperationFailureDetails": {
-                    "ErrorInfo": {
-                        "ErrorString": "error while starting application"
-                    }
-                }
+                "OperationFailureDetails": {"ErrorInfo": {"ErrorString": "error while starting application"}},
             }
         }
 
@@ -141,7 +144,8 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_poke_success_state(self, mock_conn, state):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
 
         assert self.sensor.poke({}) is True
 
@@ -149,7 +153,8 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_intermediate_state(self, mock_conn, state):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
         assert self.sensor.poke({}) is False
 
     @pytest.mark.parametrize(
@@ -163,16 +168,13 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_poke_failure_states(self, mock_conn, state, soft_fail, expected_exception):
         mock_conn.describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}}
+            "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
+        }
         mock_conn.describe_application_operation.return_value = {
             "ApplicationOperationInfoDetails": {
                 "Operation": "StopApplication",
                 "OperationStatus": "FAILED",
-                "OperationFailureDetails": {
-                    "ErrorInfo": {
-                        "ErrorString": "error while stopping application"
-                    }
-                }
+                "OperationFailureDetails": {"ErrorInfo": {"ErrorString": "error while stopping application"}},
             }
         }
 

@@ -14,13 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from unittest.mock import AsyncMock, patch, Mock
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from airflow.exceptions import AirflowException
-from airflow.providers.amazon.aws.triggers.kinesis_analytics import \
-    KinesisAnalyticsV2ApplicationOperationCompleteTrigger
+from airflow.providers.amazon.aws.triggers.kinesis_analytics import (
+    KinesisAnalyticsV2ApplicationOperationCompleteTrigger,
+)
 from airflow.triggers.base import TriggerEvent
 
 BASE_TRIGGER_CLASSPATH = "airflow.providers.amazon.aws.triggers.kinesis_analytics."
@@ -33,7 +36,8 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
 
     def setup_method(self):
         self.async_conn_patcher = patch(
-            "airflow.providers.amazon.aws.hooks.kinesis_analytics.KinesisAnalyticsV2Hook.async_conn")
+            "airflow.providers.amazon.aws.hooks.kinesis_analytics.KinesisAnalyticsV2Hook.async_conn"
+        )
         self.mock_async_conn = self.async_conn_patcher.start()
 
         self.mock_client = AsyncMock()
@@ -49,7 +53,7 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
             operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete"
+            waiter_name="application_start_complete",
         )
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "KinesisAnalyticsV2ApplicationOperationCompleteTrigger"
@@ -62,14 +66,19 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
             operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete"
+            waiter_name="application_start_complete",
         )
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "success", "application_name": self.APPLICATION_NAME,
-                                         "operation_id": self.OPERATION_ID})
+        assert response == TriggerEvent(
+            {
+                "status": "success",
+                "application_name": self.APPLICATION_NAME,
+                "operation_id": self.OPERATION_ID,
+            }
+        )
         self.mock_client.get_waiter.assert_called_once_with("application_start_complete")
 
     @pytest.mark.asyncio
@@ -79,14 +88,15 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
             operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete"
+            waiter_name="application_start_complete",
         )
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "failed", "application_name": self.APPLICATION_NAME,
-                                         "operation_id": self.OPERATION_ID})
+        assert response == TriggerEvent(
+            {"status": "failed", "application_name": self.APPLICATION_NAME, "operation_id": self.OPERATION_ID}
+        )
 
     @pytest.mark.asyncio
     async def test_run_success_for_application_stop_complete_waiter(self):
@@ -95,14 +105,19 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
             operation_id=self.OPERATION_ID,
-            waiter_name="application_stop_complete"
+            waiter_name="application_stop_complete",
         )
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "success", "application_name": self.APPLICATION_NAME,
-                                         "operation_id": self.OPERATION_ID})
+        assert response == TriggerEvent(
+            {
+                "status": "success",
+                "application_name": self.APPLICATION_NAME,
+                "operation_id": self.OPERATION_ID,
+            }
+        )
         self.mock_client.get_waiter.assert_called_once_with("application_stop_complete")
 
     @pytest.mark.asyncio
@@ -112,12 +127,12 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
             operation_id=self.OPERATION_ID,
-            waiter_name="application_stop_complete"
+            waiter_name="application_stop_complete",
         )
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent({"status": "failed", "application_name": self.APPLICATION_NAME,
-                                         "operation_id": self.OPERATION_ID})
-
+        assert response == TriggerEvent(
+            {"status": "failed", "application_name": self.APPLICATION_NAME, "operation_id": self.OPERATION_ID}
+        )

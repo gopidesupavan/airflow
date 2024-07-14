@@ -214,8 +214,10 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
 
         self.log.info("%s started successfully %s.", msg, self.application_name)
 
-        return {"ApplicationARN": describe_response["ApplicationDetail"]["ApplicationARN"],
-                "OperationId": operation_id}
+        return {
+            "ApplicationARN": describe_response["ApplicationDetail"]["ApplicationARN"],
+            "OperationId": operation_id,
+        }
 
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> dict[str, Any]:
         event = validate_execute_complete_event(event)
@@ -232,8 +234,10 @@ class KinesisAnalyticsV2StartApplicationOperator(AwsBaseOperator[KinesisAnalytic
             event["application_name"],
         )
 
-        return {"ApplicationARN": response["ApplicationDetail"]["ApplicationARN"],
-                "OperationId": event.get("operation_id")}
+        return {
+            "ApplicationARN": response["ApplicationDetail"]["ApplicationARN"],
+            "OperationId": event.get("operation_id"),
+        }
 
 
 class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalyticsV2Hook]):
@@ -336,8 +340,10 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
 
         self.log.info("%s stopped successfully %s.", msg, self.application_name)
 
-        return {"ApplicationARN": describe_response["ApplicationDetail"]["ApplicationARN"],
-                "OperationId": operation_id}
+        return {
+            "ApplicationARN": describe_response["ApplicationDetail"]["ApplicationARN"],
+            "OperationId": operation_id,
+        }
 
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> dict[str, Any]:
         event = validate_execute_complete_event(event)
@@ -354,5 +360,7 @@ class KinesisAnalyticsV2StopApplicationOperator(AwsBaseOperator[KinesisAnalytics
             event["application_name"],
         )
 
-        return {"ApplicationARN": response["ApplicationDetail"]["ApplicationARN"],
-                "OperationId": event["operation_id"]}
+        return {
+            "ApplicationARN": response["ApplicationDetail"]["ApplicationARN"],
+            "OperationId": event["operation_id"],
+        }

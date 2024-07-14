@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
@@ -43,7 +43,7 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
         self,
         application_name: str,
         waiter_name: str,
-        operation_id: str,
+        operation_id: str | None = None,
         waiter_delay: int = 120,
         waiter_max_attempts: int = 75,
         aws_conn_id: str | None = "aws_default",
@@ -89,8 +89,9 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
             except AirflowException as exception:
                 self.log.error("Error AWS Managed Service for Apache Flink Application: %s", exception)
                 yield TriggerEvent(
-                    {"status": "failed", "application_name": application_name,
-                     "operation_id": operation_id})
+                    {"status": "failed", "application_name": application_name, "operation_id": operation_id}
+                )
             else:
-                yield TriggerEvent({"status": "success", "application_name": application_name,
-                                    "operation_id": operation_id})
+                yield TriggerEvent(
+                    {"status": "success", "application_name": application_name, "operation_id": operation_id}
+                )

@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Sequence, TYPE_CHECKING
 
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException, AirflowSkipException
@@ -26,12 +26,14 @@ from airflow.providers.amazon.aws.triggers.kinesis_analytics import (
     KinesisAnalyticsV2ApplicationOperationCompleteTrigger,
 )
 from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
-from airflow.utils.context import Context
+
+if TYPE_CHECKING:
+    from airflow.utils.context import Context
 
 
 class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAnalyticsV2Hook]):
     """
-    Waits for Managed Service for Apache Flink application to start
+    Waits for Managed Service for Apache Flink application to start.
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:
@@ -148,7 +150,7 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
 
 class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnalyticsV2Hook]):
     """
-    Waits for Managed Service for Apache Flink application to stop
+    Waits for Managed Service for Apache Flink application to stop.
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:

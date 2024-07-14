@@ -15,7 +15,7 @@
 # under the License.
 from __future__ import annotations
 
-from typing import Generator
+from typing import Generator, TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -23,13 +23,15 @@ from boto3 import client
 from moto import mock_aws
 
 from airflow.exceptions import AirflowException
-from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
 from airflow.providers.amazon.aws.operators.kinesis_analytics import (
     KinesisAnalyticsV2CreateApplicationOperator,
     KinesisAnalyticsV2StartApplicationOperator,
     KinesisAnalyticsV2StopApplicationOperator,
 )
+
+if TYPE_CHECKING:
+    from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 
 
 class TestKinesisAnalyticsV2CreateApplicationOperator:
@@ -333,7 +335,7 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
 
         with pytest.raises(
             AirflowException,
-            match="org.apache.flink.client.program" ".ProgramInvocationException: The program",
+            match="org.apache.flink.client.program.ProgramInvocationException: The program",
         ):
             self.operator.execute_complete(context=None, event=event)
 

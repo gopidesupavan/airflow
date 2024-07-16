@@ -33,14 +33,13 @@ if TYPE_CHECKING:
 
 class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAnalyticsV2Hook]):
     """
-    Waits for Managed Service for Apache Flink application to start.
+    Waits for AWS Managed Service for Apache Flink application to start.
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:
-        :ref:`howto/sensor:KinesisAnalyticsV2ApplicationStartCompletedSensor`
+        :ref:`howto/sensor:KinesisAnalyticsV2StartApplicationCompletedSensor`
 
     :param application_name: Application name.
-    :param operation_id: Identifier of the Operation.
 
     :param deferrable: If True, the sensor will operate in deferrable mode. This mode requires aiobotocore
         module to be installed.
@@ -76,13 +75,12 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
     SUCCESS_STATES: tuple[str, ...] = ("RUNNING",)
     FAILURE_MESSAGE = "AWS Managed Service for Apache Flink application start failed."
 
-    template_fields: Sequence[str] = aws_template_fields("application_name", "operation_id")
+    template_fields: Sequence[str] = aws_template_fields("application_name")
 
     def __init__(
         self,
         *,
         application_name: str,
-        operation_id: str | None = None,
         max_retries: int = 75,
         poke_interval: int = 120,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
@@ -90,7 +88,6 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
     ) -> None:
         super().__init__(**kwargs)
         self.application_name = application_name
-        self.operation_id = operation_id
         self.max_retries = max_retries
         self.poke_interval = poke_interval
         self.deferrable = deferrable
@@ -100,7 +97,6 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
             self.defer(
                 trigger=KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
                     application_name=self.application_name,
-                    operation_id=self.operation_id,
                     waiter_name="application_start_complete",
                     aws_conn_id=self.aws_conn_id,
                     waiter_delay=int(self.poke_interval),
@@ -126,17 +122,10 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
         )
 
         if status in self.FAILURE_STATES:
-            error = (
-                self.hook.conn.describe_application_operation(
-                    ApplicationName=self.application_name, OperationId=self.operation_id
-                )["ApplicationOperationInfoDetails"]["OperationFailureDetails"]
-                if self.operation_id
-                else self.FAILURE_MESSAGE
-            )
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
             if self.soft_fail:
-                raise AirflowSkipException(error)
-            raise AirflowException(error)
+                raise AirflowSkipException(self.FAILURE_MESSAGE)
+            raise AirflowException(self.FAILURE_MESSAGE)
 
         if status in self.SUCCESS_STATES:
             self.log.info(
@@ -150,14 +139,13 @@ class KinesisAnalyticsV2StartApplicationCompletedSensor(AwsBaseSensor[KinesisAna
 
 class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnalyticsV2Hook]):
     """
-    Waits for Managed Service for Apache Flink application to stop.
+    Waits for AWS Managed Service for Apache Flink application to stop.
 
     .. seealso::
         For more information on how to use this sensor, take a look at the guide:
         :ref:`howto/sensor:KinesisAnalyticsV2StopApplicationCompletedSensor`
 
     :param application_name: Application name.
-    :param operation_id: Identifier of the Operation.
 
     :param deferrable: If True, the sensor will operate in deferrable mode. This mode requires aiobotocore
         module to be installed.
@@ -192,13 +180,12 @@ class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnal
     SUCCESS_STATES: tuple[str, ...] = ("READY",)
     FAILURE_MESSAGE = "AWS Managed Service for Apache Flink application stop failed."
 
-    template_fields: Sequence[str] = aws_template_fields("application_name", "operation_id")
+    template_fields: Sequence[str] = aws_template_fields("application_name")
 
     def __init__(
         self,
         *,
         application_name: str,
-        operation_id: str | None = None,
         max_retries: int = 75,
         poke_interval: int = 120,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
@@ -206,7 +193,6 @@ class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnal
     ) -> None:
         super().__init__(**kwargs)
         self.application_name = application_name
-        self.operation_id = operation_id
         self.max_retries = max_retries
         self.poke_interval = poke_interval
         self.deferrable = deferrable
@@ -216,7 +202,6 @@ class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnal
             self.defer(
                 trigger=KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
                     application_name=self.application_name,
-                    operation_id=self.operation_id,
                     waiter_name="application_stop_complete",
                     aws_conn_id=self.aws_conn_id,
                     waiter_delay=int(self.poke_interval),
@@ -242,17 +227,10 @@ class KinesisAnalyticsV2StopApplicationCompletedSensor(AwsBaseSensor[KinesisAnal
         )
 
         if status in self.FAILURE_STATES:
-            error = (
-                self.hook.conn.describe_application_operation(
-                    ApplicationName=self.application_name, OperationId=self.operation_id
-                )["ApplicationOperationInfoDetails"]["OperationFailureDetails"]
-                if self.operation_id
-                else self.FAILURE_MESSAGE
-            )
             # TODO: remove this if block when min_airflow_version is set to higher than 2.7.1
             if self.soft_fail:
-                raise AirflowSkipException(error)
-            raise AirflowException(error)
+                raise AirflowSkipException(self.FAILURE_MESSAGE)
+            raise AirflowException(self.FAILURE_MESSAGE)
 
         if status in self.SUCCESS_STATES:
             self.log.info(

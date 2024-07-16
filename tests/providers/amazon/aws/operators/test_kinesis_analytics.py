@@ -163,13 +163,12 @@ class TestKinesisAnalyticsV2CreateApplicationOperator:
 class TestKinesisAnalyticsV2StartApplicationOperator:
     APPLICATION_ARN = "arn:aws:kinesisanalytics:us-east-1:123456789012:application/demo"
     ROLE_ARN = "arn:aws:iam::123456789012:role/KinesisExecutionRole"
-    OPERATION_ID = "1234"
     RUN_CONFIGURATION = {"FlinkRunConfiguration": {"AllowNonRestoredState": True}}
 
     @pytest.fixture
     def mock_conn(self) -> Generator[BaseAwsConnection, None, None]:
         with mock.patch.object(KinesisAnalyticsV2Hook, "conn") as _conn:
-            _conn.start_application.return_value = {"OperationId": self.OPERATION_ID}
+            _conn.start_application.return_value = {}
             _conn.describe_application.return_value = {
                 "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
             }
@@ -231,7 +230,7 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
         kinesis_analytics_mock_conn.describe_application.return_value = {
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
-        kinesis_analytics_mock_conn.start_application.return_value = {"OperationId": self.OPERATION_ID}
+        kinesis_analytics_mock_conn.start_application.return_value = {}
 
         self.op = KinesisAnalyticsV2StartApplicationOperator(
             task_id="start_application_operator",
@@ -241,7 +240,7 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
         self.op.wait_for_completion = False
         response = self.op.execute({})
 
-        assert response == {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID}
+        assert response == {"ApplicationARN": self.APPLICATION_ARN}
 
         kinesis_analytics_mock_conn.start_application.assert_called_once_with(
             ApplicationName="demo", RunConfiguration=self.RUN_CONFIGURATION
@@ -264,7 +263,7 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
 
         response = self.operator.execute({})
 
-        assert response == {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID}
+        assert response == {"ApplicationARN": self.APPLICATION_ARN}
         assert kinesis_analytics_v2_hook.get_waiter.call_count == wait_for_completion
         assert self.operator.defer.call_count == deferrable
 
@@ -308,11 +307,11 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
 
-        event = {"status": "success", "application_name": "demo", "operation_id": "1234"}
+        event = {"status": "success", "application_name": "demo"}
 
         response = self.operator.execute_complete(context=None, event=event)
 
-        assert {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID} == response
+        assert {"ApplicationARN": self.APPLICATION_ARN} == response
 
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_execute_complete_failure(self, kinesis_analytics_mock_conn):
@@ -320,23 +319,11 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
 
-        kinesis_analytics_mock_conn.describe_application_operation.return_value = {
-            "ApplicationOperationInfoDetails": {
-                "Operation": "UpdateApplication",
-                "OperationStatus": "FAILED",
-                "OperationFailureDetails": {
-                    "ErrorInfo": {
-                        "ErrorString": "org.apache.flink.client.program.ProgramInvocationException: The program's entry point class 'com.amazonaws.services.kinesisanalytics.StreamingJob'"
-                    }
-                },
-            },
-        }
-
-        event = {"status": "error", "application_name": "demo", "operation_id": "1234"}
+        event = {"status": "error", "application_name": "demo"}
 
         with pytest.raises(
             AirflowException,
-            match="org.apache.flink.client.program.ProgramInvocationException: The program",
+            match="Error while starting AWS Managed Service for Apache Flink application",
         ):
             self.operator.execute_complete(context=None, event=event)
 
@@ -344,12 +331,11 @@ class TestKinesisAnalyticsV2StartApplicationOperator:
 class TestKinesisAnalyticsV2StopApplicationOperator:
     APPLICATION_ARN = "arn:aws:kinesisanalytics:us-east-1:123456789012:application/demo"
     ROLE_ARN = "arn:aws:iam::123456789012:role/KinesisExecutionRole"
-    OPERATION_ID = "1234"
 
     @pytest.fixture
     def mock_conn(self) -> Generator[BaseAwsConnection, None, None]:
         with mock.patch.object(KinesisAnalyticsV2Hook, "conn") as _conn:
-            _conn.stop_application.return_value = {"OperationId": self.OPERATION_ID}
+            _conn.stop_application.return_value = {}
             _conn.describe_application.return_value = {
                 "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
             }
@@ -411,7 +397,7 @@ class TestKinesisAnalyticsV2StopApplicationOperator:
         kinesis_analytics_mock_conn.describe_application.return_value = {
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
-        kinesis_analytics_mock_conn.stop_application.return_value = {"OperationId": self.OPERATION_ID}
+        kinesis_analytics_mock_conn.stop_application.return_value = {}
 
         self.op = KinesisAnalyticsV2StopApplicationOperator(
             task_id="stop_application_operator", application_name="demo", force=False
@@ -419,7 +405,7 @@ class TestKinesisAnalyticsV2StopApplicationOperator:
         self.op.wait_for_completion = False
         response = self.op.execute({})
 
-        assert response == {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID}
+        assert response == {"ApplicationARN": self.APPLICATION_ARN}
 
         kinesis_analytics_mock_conn.stop_application.assert_called_once_with(
             ApplicationName="demo", Force=False
@@ -442,7 +428,7 @@ class TestKinesisAnalyticsV2StopApplicationOperator:
 
         response = self.operator.execute({})
 
-        assert response == {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID}
+        assert response == {"ApplicationARN": self.APPLICATION_ARN}
         assert kinesis_analytics_v2_hook.get_waiter.call_count == wait_for_completion
         assert self.operator.defer.call_count == deferrable
 
@@ -480,27 +466,18 @@ class TestKinesisAnalyticsV2StopApplicationOperator:
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
 
-        event = {"status": "success", "application_name": "demo", "operation_id": "1234"}
+        event = {"status": "success", "application_name": "demo"}
 
         response = self.operator.execute_complete(context=None, event=event)
 
-        assert {"ApplicationARN": self.APPLICATION_ARN, "OperationId": self.OPERATION_ID} == response
+        assert {"ApplicationARN": self.APPLICATION_ARN} == response
 
     @mock.patch.object(KinesisAnalyticsV2Hook, "conn")
     def test_execute_complete_failure(self, kinesis_analytics_mock_conn):
         kinesis_analytics_mock_conn.describe_application.return_value = {
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN}
         }
+        event = {"status": "error", "application_name": "demo"}
 
-        kinesis_analytics_mock_conn.describe_application_operation.return_value = {
-            "ApplicationOperationInfoDetails": {
-                "Operation": "StopApplication",
-                "OperationStatus": "FAILED",
-                "OperationFailureDetails": {"ErrorInfo": {"ErrorString": "error while stopping"}},
-            },
-        }
-
-        event = {"status": "error", "application_name": "demo", "operation_id": "1234"}
-
-        with pytest.raises(AirflowException, match="error while stopping"):
+        with pytest.raises(AirflowException, match="Error while stopping AWS Managed Service for Apache Flink application"):
             self.operator.execute_complete(context=None, event=event)

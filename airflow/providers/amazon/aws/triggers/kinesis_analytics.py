@@ -18,11 +18,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
 from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
-from airflow.providers.amazon.aws.utils.waiter_with_logging import async_wait
-from airflow.triggers.base import TriggerEvent
 
 if TYPE_CHECKING:
     from airflow.providers.amazon.aws.hooks.base_aws import AwsGenericHook
@@ -33,7 +30,7 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
     Trigger when a Managed Service for Apache Flink application Start or Stop is complete.
 
     :param application_name: Application name.
-    :param operation_id: Identifier of the Operation.
+    :param waiter_name: The name of the waiter for stop or start application.
     :param waiter_delay: The amount of time in seconds to wait between attempts. (default: 120)
     :param waiter_max_attempts: The maximum number of attempts to be made. (default: 75)
     :param aws_conn_id: The Airflow connection used for AWS credentials.
@@ -43,20 +40,20 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
         self,
         application_name: str,
         waiter_name: str,
-        operation_id: str | None = None,
         waiter_delay: int = 120,
         waiter_max_attempts: int = 75,
         aws_conn_id: str | None = "aws_default",
         **kwargs,
     ) -> None:
         super().__init__(
-            serialized_fields={"application_name": application_name, "operation_id": operation_id},
+            serialized_fields={"application_name": application_name, "waiter_name": waiter_name},
             waiter_name=waiter_name,
             waiter_args={"ApplicationName": application_name},
             failure_message=f"AWS Managed Service for Apache Flink Application {application_name} failed.",
             status_message=f"Status of AWS Managed Service for Apache Flink Application {application_name} is",
             status_queries=["ApplicationDetail.ApplicationStatus"],
-            return_value=None,
+            return_key="application_name",
+            return_value=application_name,
             waiter_delay=waiter_delay,
             waiter_max_attempts=waiter_max_attempts,
             aws_conn_id=aws_conn_id,
@@ -70,28 +67,3 @@ class KinesisAnalyticsV2ApplicationOperationCompleteTrigger(AwsBaseWaiterTrigger
             verify=self.verify,
             config=self.botocore_config,
         )
-
-    async def run(self):
-        application_name = self.serialized_fields.get("application_name")
-        operation_id = self.serialized_fields.get("operation_id")
-        async with self.hook().async_conn as client:
-            waiter = client.get_waiter(self.waiter_name)
-            try:
-                await async_wait(
-                    waiter,
-                    self.waiter_delay,
-                    self.attempts,
-                    self.waiter_args,
-                    self.failure_message,
-                    self.status_message,
-                    self.status_queries,
-                )
-            except AirflowException as exception:
-                self.log.error("Error AWS Managed Service for Apache Flink Application: %s", exception)
-                yield TriggerEvent(
-                    {"status": "failed", "application_name": application_name, "operation_id": operation_id}
-                )
-            else:
-                yield TriggerEvent(
-                    {"status": "success", "application_name": application_name, "operation_id": operation_id}
-                )

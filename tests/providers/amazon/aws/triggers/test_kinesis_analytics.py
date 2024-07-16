@@ -16,123 +16,63 @@
 # under the License.
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from airflow.exceptions import AirflowException
+from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
 from airflow.providers.amazon.aws.triggers.kinesis_analytics import (
     KinesisAnalyticsV2ApplicationOperationCompleteTrigger,
 )
 from airflow.triggers.base import TriggerEvent
+from tests.providers.amazon.aws.utils.test_waiter import assert_expected_waiter_type
 
 BASE_TRIGGER_CLASSPATH = "airflow.providers.amazon.aws.triggers.kinesis_analytics."
-MOCK_EXCEPTION = AirflowException("Mock Error")
 
 
 class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
     APPLICATION_NAME = "demo"
-    OPERATION_ID = "1234"
 
-    def setup_method(self):
-        self.async_conn_patcher = patch(
-            "airflow.providers.amazon.aws.hooks.kinesis_analytics.KinesisAnalyticsV2Hook.async_conn"
-        )
-        self.mock_async_conn = self.async_conn_patcher.start()
-
-        self.mock_client = AsyncMock()
-        self.mock_async_conn.__aenter__.return_value = self.mock_client
-
-        self.async_wait_patcher = patch(
-            "airflow.providers.amazon.aws.triggers.kinesis_analytics.async_wait", return_value=True
-        )
-        self.mock_async_wait = self.async_wait_patcher.start()
-
-    def test_serialization_with(self):
+    def test_serialization(self):
         """Assert that arguments and classpath are correctly serialized."""
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
-            operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete",
-        )
+            waiter_name="application_start_complete")
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "KinesisAnalyticsV2ApplicationOperationCompleteTrigger"
         assert kwargs.get("application_name") == self.APPLICATION_NAME
-        assert kwargs.get("operation_id") == self.OPERATION_ID
 
     @pytest.mark.asyncio
-    async def test_run_success_for_application_start_complete_waiter(self):
-        self.mock_client.get_waiter = Mock(return_value="waiter")
+    @mock.patch.object(KinesisAnalyticsV2Hook, "get_waiter")
+    @mock.patch.object(KinesisAnalyticsV2Hook, "async_conn")
+    async def test_run_success_with_application_start_complete_waiter(self, mock_async_conn, mock_get_waiter):
+        mock_async_conn.__aenter__.return_value = mock.MagicMock()
+        mock_get_waiter().wait = AsyncMock()
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
-            operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete",
-        )
+            waiter_name="application_start_complete")
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent(
-            {
-                "status": "success",
-                "application_name": self.APPLICATION_NAME,
-                "operation_id": self.OPERATION_ID,
-            }
-        )
-        self.mock_client.get_waiter.assert_called_once_with("application_start_complete")
+        assert response == TriggerEvent({"status": "success", "application_name": self.APPLICATION_NAME})
+        assert_expected_waiter_type(mock_get_waiter, "application_start_complete")
+        mock_get_waiter().wait.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_when_start_application_raises_exception_it_should_return_a_failure_event(self):
-        self.mock_async_wait.side_effect = MOCK_EXCEPTION
-
+    @mock.patch.object(KinesisAnalyticsV2Hook, "get_waiter")
+    @mock.patch.object(KinesisAnalyticsV2Hook, "async_conn")
+    async def test_run_success_with_application_stop_complete_waiter(self, mock_async_conn, mock_get_waiter):
+        mock_async_conn.__aenter__.return_value = mock.MagicMock()
+        mock_get_waiter().wait = AsyncMock()
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
             application_name=self.APPLICATION_NAME,
-            operation_id=self.OPERATION_ID,
-            waiter_name="application_start_complete",
-        )
+            waiter_name="application_stop_waiter")
 
         generator = trigger.run()
         response = await generator.asend(None)
 
-        assert response == TriggerEvent(
-            {"status": "failed", "application_name": self.APPLICATION_NAME, "operation_id": self.OPERATION_ID}
-        )
-
-    @pytest.mark.asyncio
-    async def test_run_success_for_application_stop_complete_waiter(self):
-        self.mock_client.get_waiter = Mock(return_value="waiter")
-
-        trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
-            application_name=self.APPLICATION_NAME,
-            operation_id=self.OPERATION_ID,
-            waiter_name="application_stop_complete",
-        )
-
-        generator = trigger.run()
-        response = await generator.asend(None)
-
-        assert response == TriggerEvent(
-            {
-                "status": "success",
-                "application_name": self.APPLICATION_NAME,
-                "operation_id": self.OPERATION_ID,
-            }
-        )
-        self.mock_client.get_waiter.assert_called_once_with("application_stop_complete")
-
-    @pytest.mark.asyncio
-    async def test_when_stop_application_raises_exception_it_should_return_a_failure_event(self):
-        self.mock_async_wait.side_effect = MOCK_EXCEPTION
-
-        trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
-            application_name=self.APPLICATION_NAME,
-            operation_id=self.OPERATION_ID,
-            waiter_name="application_stop_complete",
-        )
-
-        generator = trigger.run()
-        response = await generator.asend(None)
-
-        assert response == TriggerEvent(
-            {"status": "failed", "application_name": self.APPLICATION_NAME, "operation_id": self.OPERATION_ID}
-        )
+        assert response == TriggerEvent({"status": "success", "application_name": self.APPLICATION_NAME})
+        assert_expected_waiter_type(mock_get_waiter, "application_stop_waiter")
+        mock_get_waiter().wait.assert_called_once()

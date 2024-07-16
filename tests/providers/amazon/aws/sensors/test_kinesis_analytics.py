@@ -36,7 +36,6 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
         self.default_op_kwargs = dict(
             task_id="start_application_sensor",
             application_name="demo",
-            operation_id="1234",
             poke_interval=5,
             max_retries=1,
         )
@@ -92,17 +91,10 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
         mock_conn.describe_application.return_value = {
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
         }
-        mock_conn.describe_application_operation.return_value = {
-            "ApplicationOperationInfoDetails": {
-                "Operation": "StartApplication",
-                "OperationStatus": "FAILED",
-                "OperationFailureDetails": {"ErrorInfo": {"ErrorString": "error while starting application"}},
-            }
-        }
 
         sensor = self.SENSOR(**self.default_op_kwargs, aws_conn_id=None, soft_fail=soft_fail)
 
-        with pytest.raises(expected_exception, match="error while starting application"):
+        with pytest.raises(expected_exception, match="AWS Managed Service for Apache Flink application start failed"):
             sensor.poke({})
 
 
@@ -114,7 +106,6 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
         self.default_op_kwargs = dict(
             task_id="stop_application_sensor",
             application_name="demo",
-            operation_id="1234",
             poke_interval=5,
             max_retries=1,
         )
@@ -170,15 +161,8 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
         mock_conn.describe_application.return_value = {
             "ApplicationDetail": {"ApplicationARN": self.APPLICATION_ARN, "ApplicationStatus": state}
         }
-        mock_conn.describe_application_operation.return_value = {
-            "ApplicationOperationInfoDetails": {
-                "Operation": "StopApplication",
-                "OperationStatus": "FAILED",
-                "OperationFailureDetails": {"ErrorInfo": {"ErrorString": "error while stopping application"}},
-            }
-        }
 
         sensor = self.SENSOR(**self.default_op_kwargs, aws_conn_id=None, soft_fail=soft_fail)
 
-        with pytest.raises(expected_exception, match="error while stopping application"):
+        with pytest.raises(expected_exception, match="AWS Managed Service for Apache Flink application stop failed"):
             sensor.poke({})

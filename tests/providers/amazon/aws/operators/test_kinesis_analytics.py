@@ -479,5 +479,7 @@ class TestKinesisAnalyticsV2StopApplicationOperator:
         }
         event = {"status": "error", "application_name": "demo"}
 
-        with pytest.raises(AirflowException, match="Error while stopping AWS Managed Service for Apache Flink application"):
+        with pytest.raises(
+            AirflowException, match="Error while stopping AWS Managed Service for Apache Flink application"
+        ):
             self.operator.execute_complete(context=None, event=event)

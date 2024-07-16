@@ -17,7 +17,6 @@
 # under the License.
 from __future__ import annotations
 
-from airflow.exceptions import AirflowException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 

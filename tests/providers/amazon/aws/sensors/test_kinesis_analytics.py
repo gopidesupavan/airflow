@@ -94,7 +94,9 @@ class TestKinesisAnalyticsV2StartApplicationCompletedSensor:
 
         sensor = self.SENSOR(**self.default_op_kwargs, aws_conn_id=None, soft_fail=soft_fail)
 
-        with pytest.raises(expected_exception, match="AWS Managed Service for Apache Flink application start failed"):
+        with pytest.raises(
+            expected_exception, match="AWS Managed Service for Apache Flink application start failed"
+        ):
             sensor.poke({})
 
 
@@ -164,5 +166,7 @@ class TestKinesisAnalyticsV2StopApplicationCompletedSensor:
 
         sensor = self.SENSOR(**self.default_op_kwargs, aws_conn_id=None, soft_fail=soft_fail)
 
-        with pytest.raises(expected_exception, match="AWS Managed Service for Apache Flink application stop failed"):
+        with pytest.raises(
+            expected_exception, match="AWS Managed Service for Apache Flink application stop failed"
+        ):
             sensor.poke({})

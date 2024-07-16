@@ -23,8 +23,10 @@ import botocore
 import pytest
 
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
-from airflow.providers.amazon.aws.sensors.kinesis_analytics import \
-    KinesisAnalyticsV2StartApplicationCompletedSensor, KinesisAnalyticsV2StopApplicationCompletedSensor
+from airflow.providers.amazon.aws.sensors.kinesis_analytics import (
+    KinesisAnalyticsV2StartApplicationCompletedSensor,
+    KinesisAnalyticsV2StopApplicationCompletedSensor,
+)
 
 
 class TestKinesisAnalyticsV2CustomWaiters:
@@ -51,17 +53,13 @@ class TestKinesisAnalyticsV2ApplicationStartWaiter(TestKinesisAnalyticsV2CustomW
 
     @pytest.mark.parametrize("state", KinesisAnalyticsV2StartApplicationCompletedSensor.SUCCESS_STATES)
     def test_start_application_complete(self, state, mock_describe_application):
-        mock_describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationStatus": state}
-        }
+        mock_describe_application.return_value = {"ApplicationDetail": {"ApplicationStatus": state}}
 
         KinesisAnalyticsV2Hook().get_waiter(self.WAITER_NAME).wait(ApplicationName=self.APPLICATION_NAME)
 
     @pytest.mark.parametrize("state", KinesisAnalyticsV2StartApplicationCompletedSensor.FAILURE_STATES)
     def test_start_application_complete_failed(self, state, mock_describe_application):
-        mock_describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationStatus": state}
-        }
+        mock_describe_application.return_value = {"ApplicationDetail": {"ApplicationStatus": state}}
         with pytest.raises(botocore.exceptions.WaiterError):
             KinesisAnalyticsV2Hook().get_waiter(self.WAITER_NAME).wait(ApplicationName=self.APPLICATION_NAME)
 
@@ -87,17 +85,13 @@ class TestKinesisAnalyticsV2ApplicationStopWaiter(TestKinesisAnalyticsV2CustomWa
 
     @pytest.mark.parametrize("state", KinesisAnalyticsV2StopApplicationCompletedSensor.SUCCESS_STATES)
     def test_stop_application_complete(self, state, mock_describe_application):
-        mock_describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationStatus": state}
-        }
+        mock_describe_application.return_value = {"ApplicationDetail": {"ApplicationStatus": state}}
 
         KinesisAnalyticsV2Hook().get_waiter(self.WAITER_NAME).wait(ApplicationName=self.APPLICATION_NAME)
 
     @pytest.mark.parametrize("state", KinesisAnalyticsV2StopApplicationCompletedSensor.FAILURE_STATES)
     def test_stop_application_complete_failed(self, state, mock_describe_application):
-        mock_describe_application.return_value = {
-            "ApplicationDetail": {"ApplicationStatus": state}
-        }
+        mock_describe_application.return_value = {"ApplicationDetail": {"ApplicationStatus": state}}
         with pytest.raises(botocore.exceptions.WaiterError):
             KinesisAnalyticsV2Hook().get_waiter(self.WAITER_NAME).wait(ApplicationName=self.APPLICATION_NAME)
 

@@ -37,8 +37,8 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
     def test_serialization(self):
         """Assert that arguments and classpath are correctly serialized."""
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
-            application_name=self.APPLICATION_NAME,
-            waiter_name="application_start_complete")
+            application_name=self.APPLICATION_NAME, waiter_name="application_start_complete"
+        )
         classpath, kwargs = trigger.serialize()
         assert classpath == BASE_TRIGGER_CLASSPATH + "KinesisAnalyticsV2ApplicationOperationCompleteTrigger"
         assert kwargs.get("application_name") == self.APPLICATION_NAME
@@ -50,8 +50,8 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         mock_async_conn.__aenter__.return_value = mock.MagicMock()
         mock_get_waiter().wait = AsyncMock()
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
-            application_name=self.APPLICATION_NAME,
-            waiter_name="application_start_complete")
+            application_name=self.APPLICATION_NAME, waiter_name="application_start_complete"
+        )
 
         generator = trigger.run()
         response = await generator.asend(None)
@@ -67,8 +67,8 @@ class TestKinesisAnalyticsV2ApplicationOperationCompleteTrigger:
         mock_async_conn.__aenter__.return_value = mock.MagicMock()
         mock_get_waiter().wait = AsyncMock()
         trigger = KinesisAnalyticsV2ApplicationOperationCompleteTrigger(
-            application_name=self.APPLICATION_NAME,
-            waiter_name="application_stop_waiter")
+            application_name=self.APPLICATION_NAME, waiter_name="application_stop_waiter"
+        )
 
         generator = trigger.run()
         response = await generator.asend(None)

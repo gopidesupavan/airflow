@@ -21,19 +21,23 @@ from datetime import datetime
 import boto3
 
 from airflow import DAG, settings
-from airflow.decorators import task_group, task
+from airflow.decorators import task, task_group
 from airflow.models import Connection
 from airflow.models.baseoperator import chain
 from airflow.providers.amazon.aws.hooks.kinesis_analytics import KinesisAnalyticsV2Hook
-from airflow.providers.amazon.aws.operators.kinesis_analytics import \
-    KinesisAnalyticsV2CreateApplicationOperator, KinesisAnalyticsV2StartApplicationOperator, \
-    KinesisAnalyticsV2StopApplicationOperator
+from airflow.providers.amazon.aws.operators.kinesis_analytics import (
+    KinesisAnalyticsV2CreateApplicationOperator,
+    KinesisAnalyticsV2StartApplicationOperator,
+    KinesisAnalyticsV2StopApplicationOperator,
+)
 from airflow.providers.amazon.aws.operators.s3 import (
     S3CreateBucketOperator,
     S3DeleteBucketOperator,
 )
-from airflow.providers.amazon.aws.sensors.kinesis_analytics import \
-    KinesisAnalyticsV2StartApplicationCompletedSensor, KinesisAnalyticsV2StopApplicationCompletedSensor
+from airflow.providers.amazon.aws.sensors.kinesis_analytics import (
+    KinesisAnalyticsV2StartApplicationCompletedSensor,
+    KinesisAnalyticsV2StopApplicationCompletedSensor,
+)
 from airflow.providers.amazon.aws.transfers.http_to_s3 import HttpToS3Operator
 from airflow.utils.trigger_rule import TriggerRule
 from tests.system.providers.amazon.aws.utils import SystemTestContextBuilder
@@ -63,17 +67,17 @@ def kinesis_analytics_v2_workflow():
                     }
                 },
                 "EnvironmentProperties": {
-                    'PropertyGroups': [
+                    "PropertyGroups": [
                         {
-                            'PropertyGroupId': 'BlueprintMetadata',
-                            'PropertyMap': {
+                            "PropertyGroupId": "BlueprintMetadata",
+                            "PropertyMap": {
                                 "AWSRegion": region_name,
                                 "BlueprintName": "KDS_FLINK-DATASTREAM-JAVA_S3",
-                                'BucketName': f"s3://{bucket_name}/",
-                                'PartitionFormat': 'yyyy-MM-dd-HH',
-                                'StreamInitialPosition': 'TRIM_HORIZON',
-                                'StreamName': stream_name
-                            }
+                                "BucketName": f"s3://{bucket_name}/",
+                                "PartitionFormat": "yyyy-MM-dd-HH",
+                                "StreamInitialPosition": "TRIM_HORIZON",
+                                "StreamName": stream_name,
+                            },
                         },
                     ]
                 },
@@ -81,13 +85,13 @@ def kinesis_analytics_v2_workflow():
                     "CodeContent": {
                         "S3ContentLocation": {
                             "BucketARN": f"arn:aws:s3:::{bucket_name}",
-                            "FileKey": "code/kds-to-s3-datastream-java-1.0.1.jar"
+                            "FileKey": "code/kds-to-s3-datastream-java-1.0.1.jar",
                         },
                     },
                     "CodeContentType": "ZIPFILE",
-                }
+                },
             }
-        }
+        },
     )
     # [END howto_operator_create_application]
 
@@ -124,21 +128,19 @@ def kinesis_analytics_v2_workflow():
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def delete_application(app_name: str):
         kinesis_analytics_v2_hook = KinesisAnalyticsV2Hook()
-        response = kinesis_analytics_v2_hook.conn.describe_application(
-            ApplicationName=app_name
-        )
+        response = kinesis_analytics_v2_hook.conn.describe_application(ApplicationName=app_name)
         kinesis_analytics_v2_hook.conn.delete_application(
-            ApplicationName=app_name,
-            CreateTimestamp=response["ApplicationDetail"]["CreateTimestamp"]
+            ApplicationName=app_name, CreateTimestamp=response["ApplicationDetail"]["CreateTimestamp"]
         )
 
-    chain(create_application,
-          start_application,
-          await_start_application,
-          stop_application,
-          await_stop_application,
-          delete_application(application_name)
-          )
+    chain(
+        create_application,
+        start_application,
+        await_start_application,
+        stop_application,
+        await_stop_application,
+        delete_application(application_name),
+    )
 
 
 @task_group
@@ -173,7 +175,7 @@ def copy_jar_to_s3(bucket: str):
         http_conn_id=http_conn_id,
         endpoint="awslabs/managed-service-for-apache-flink-blueprints/releases/download/v2.0.1/kds-to-s3-datastream-java-1.0.1.jar",
         s3_bucket=bucket,
-        s3_key="code/kds-to-s3-datastream-java-1.0.1.jar"
+        s3_key="code/kds-to-s3-datastream-java-1.0.1.jar",
     )
 
     chain(create_connection(http_conn_id), copy_jar_file, delete_connection(http_conn_id))
@@ -182,22 +184,13 @@ def copy_jar_to_s3(bucket: str):
 @task
 def create_kinesis_stream(stream: str):
     client = boto3.client("kinesis", region_name=region_name)
-    client.create_stream(
-        StreamName=stream,
-        ShardCount=1,
-        StreamModeDetails={
-            "StreamMode": "PROVISIONED"
-        }
-    )
+    client.create_stream(StreamName=stream, ShardCount=1, StreamModeDetails={"StreamMode": "PROVISIONED"})
 
 
 @task(trigger_rule=TriggerRule.ALL_DONE)
 def delete_kinesis_stream(stream: str):
     client = boto3.client("kinesis", region_name=region_name)
-    client.delete_stream(
-        StreamName=stream,
-        EnforceConsumerDeletion=True
-    )
+    client.delete_stream(StreamName=stream, EnforceConsumerDeletion=True)
 
 
 with DAG(

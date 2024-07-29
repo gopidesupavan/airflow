@@ -30,7 +30,7 @@ from airflow.exceptions import (
     AirflowRescheduleException,
     AirflowSensorTimeout,
     AirflowSkipException,
-    AirflowTaskTimeout,
+    AirflowTaskTimeout, TaskDeferred,
 )
 from airflow.executors.debug_executor import DebugExecutor
 from airflow.executors.executor_constants import (
@@ -51,7 +51,7 @@ from airflow.providers.celery.executors.celery_executor import CeleryExecutor
 from airflow.providers.celery.executors.celery_kubernetes_executor import CeleryKubernetesExecutor
 from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
 from airflow.providers.cncf.kubernetes.executors.local_kubernetes_executor import LocalKubernetesExecutor
-from airflow.sensors.base import BaseSensorOperator, PokeReturnValue, poke_mode_only
+from airflow.sensors.base import BaseSensorOperator, PokeReturnValue, poke_mode_only, InternalSensorTrigger
 from airflow.ti_deps.deps.ready_to_reschedule import ReadyToRescheduleDep
 from airflow.utils import timezone
 from airflow.utils.session import create_session
@@ -1059,6 +1059,18 @@ class TestBaseSensor:
             load_executor.return_value = (executor_cls, None)
             task = sensor.prepare_for_execution()
             assert task.mode == mode
+
+    def test_ok_run_sensor_in_trigger(self):
+        task = DummySensor(
+            task_id="task_id",
+            run_in_trigger=True,
+            return_value=True
+        )
+
+        with pytest.raises(TaskDeferred) as exc:
+            task.execute(None)
+
+        assert isinstance(exc.value.trigger, InternalSensorTrigger)
 
 
 @poke_mode_only

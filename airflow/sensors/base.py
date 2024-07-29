@@ -351,7 +351,8 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
             return (timezone.utcnow() - start_date).total_seconds()
 
         await self.run_duration_check(run_duration)
-        next_poke_interval = self._get_next_poke_interval(started_at, run_duration, poke_count)
+        next_poke_interval = self._get_next_poke_interval(started_at, run_duration, poke_count,
+                                                          is_reschedule=True)
         reschedule_date = timezone.utcnow() + timedelta(seconds=next_poke_interval)
         if _is_metadatabase_mysql() and reschedule_date > _MYSQL_TIMESTAMP_MAX:
             raise AirflowSensorTimeout(
@@ -403,9 +404,9 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
             await self.run_duration_check(run_duration)
             sleep_time = self._get_next_poke_interval(started_at, run_duration, poke_count)
 
-            #fall back reschedule
-
-            if sleep_time > self.reschedule_time_threshold:
+            #fall back to reschedule
+            #self.reschedule this can be removed, left it here to check the current test cases.
+            if sleep_time > self.reschedule_time_threshold or self.reschedule:
                 await self._reschedule(context=context)
 
             await asyncio.sleep(sleep_time)
@@ -435,95 +436,7 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
                 method_name="execute_complete"
             )
         else:
-            started_at: datetime.datetime | float
-
-            if self.reschedule:
-                ti = context["ti"]
-                max_tries: int = ti.max_tries or 0
-                retries: int = self.retries or 0
-                # If reschedule, use the start date of the first try (first try can be either the very
-                # first execution of the task, or the first execution after the task was cleared.)
-                first_try_number = max_tries - retries + 1
-                start_date = _orig_start_date(
-                    dag_id=ti.dag_id,
-                    task_id=ti.task_id,
-                    run_id=ti.run_id,
-                    map_index=ti.map_index,
-                    try_number=first_try_number,
-                )
-                if not start_date:
-                    start_date = timezone.utcnow()
-                started_at = start_date
-
-                def run_duration() -> float:
-                    # If we are in reschedule mode, then we have to compute diff
-                    # based on the time in a DB, so can't use time.monotonic
-                    return (timezone.utcnow() - start_date).total_seconds()
-
-            else:
-                started_at = start_monotonic = time.monotonic()
-
-                def run_duration() -> float:
-                    return time.monotonic() - start_monotonic
-
-            poke_count = 1
-            log_dag_id = self.dag.dag_id if self.has_dag() else ""
-
-            xcom_value = None
-            while True:
-                try:
-                    poke_return = self.poke(context)
-                except (
-                    AirflowSensorTimeout,
-                    AirflowTaskTimeout,
-                    AirflowFailException,
-                ) as e:
-                    if self.soft_fail:
-                        raise AirflowSkipException("Skipping due to soft_fail is set to True.") from e
-                    elif self.never_fail:
-                        raise AirflowSkipException("Skipping due to never_fail is set to True.") from e
-                    raise e
-                except AirflowSkipException as e:
-                    raise e
-                except Exception as e:
-                    if self.silent_fail:
-                        self.log.error("Sensor poke failed: \n %s", traceback.format_exc())
-                        poke_return = False
-                    elif self.never_fail:
-                        raise AirflowSkipException("Skipping due to never_fail is set to True.") from e
-                    else:
-                        raise e
-
-                if poke_return:
-                    if isinstance(poke_return, PokeReturnValue):
-                        xcom_value = poke_return.xcom_value
-                    break
-
-                if run_duration() > self.timeout:
-                    # If sensor is in soft fail mode but times out raise AirflowSkipException.
-                    message = (
-                        f"Sensor has timed out; run duration of {run_duration()} seconds exceeds "
-                        f"the specified timeout of {self.timeout}."
-                    )
-
-                    if self.soft_fail:
-                        raise AirflowSkipException(message)
-                    else:
-                        raise AirflowSensorTimeout(message)
-                if self.reschedule:
-                    next_poke_interval = self._get_next_poke_interval(started_at, run_duration, poke_count)
-                    reschedule_date = timezone.utcnow() + timedelta(seconds=next_poke_interval)
-                    if _is_metadatabase_mysql() and reschedule_date > _MYSQL_TIMESTAMP_MAX:
-                        raise AirflowSensorTimeout(
-                            f"Cannot reschedule DAG {log_dag_id} to {reschedule_date.isoformat()} "
-                            f"since it is over MySQL's TIMESTAMP storage limit."
-                        )
-                    raise AirflowRescheduleException(reschedule_date)
-                else:
-                    time.sleep(self._get_next_poke_interval(started_at, run_duration, poke_count))
-                    poke_count += 1
-            self.log.info("Success criteria met. Exiting.")
-            return xcom_value
+            return asyncio.run(self.async_sensor_wrapper(context=context))
 
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None):
         if event.get("status") == "failed":

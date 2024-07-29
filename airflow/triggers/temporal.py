@@ -103,3 +103,49 @@ class TimeDeltaTrigger(DateTimeTrigger):
 
     def __init__(self, delta: datetime.timedelta, *, end_from_trigger: bool = False) -> None:
         super().__init__(moment=timezone.utcnow() + delta, end_from_trigger=end_from_trigger)
+
+
+class DummyTrigger(BaseTrigger):
+    """
+    Trigger based on a datetime.
+
+    A trigger that fires exactly once, at the given datetime, give or take
+    a few seconds.
+
+    The provided datetime MUST be in UTC.
+
+    :param moment: when to yield event
+    :param end_from_trigger: whether the trigger should mark the task successful after time condition
+        reached or resume the task after time condition reached.
+    """
+
+    def __init__(self, moment: datetime.datetime, *, end_from_trigger: bool = False) -> None:
+        super().__init__()
+        if not isinstance(moment, datetime.datetime):
+            raise TypeError(f"Expected datetime.datetime type for moment. Got {type(moment)}")
+        # Make sure it's in UTC
+        elif moment.tzinfo is None:
+            raise ValueError("You cannot pass naive datetimes")
+        else:
+            self.moment: pendulum.DateTime = timezone.convert_to_utc(moment)
+        self.end_from_trigger = end_from_trigger
+
+    def serialize(self) -> tuple[str, dict[str, Any]]:
+        return (
+            "airflow.triggers.temporal.DateTimeTrigger",
+            {"moment": self.moment, "end_from_trigger": self.end_from_trigger},
+        )
+
+    async def run(self) -> AsyncIterator[TriggerEvent]:
+        """
+        Loop until the relevant time is met.
+
+        We do have a two-phase delay to save some cycles, but sleeping is so
+        cheap anyway that it's pretty loose. We also don't just sleep for
+        "the number of seconds until the time" in case the system clock changes
+        unexpectedly, or handles a DST change poorly.
+        """
+        # Sleep in successively smaller increments starting from 1 hour down to 10 seconds at a time
+        self.log.info("trigger starting")
+        await asyncio.sleep(15)
+        yield TriggerEvent(self.moment)

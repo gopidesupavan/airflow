@@ -1783,8 +1783,11 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
             raise TaskDeferralError(next_kwargs.get("error", "Unknown"))
         # Grab the callable off the Operator/Task and add in any kwargs
         execute_callable = getattr(self, next_method)
+        self.log.info("In resume execution")
+        self.log.info(execute_callable)
         if next_kwargs:
             execute_callable = functools.partial(execute_callable, **next_kwargs)
+        self.log.info(execute_callable)
         return execute_callable(context)
 
     def unmap(self, resolve: None | dict[str, Any] | tuple[Context, Session]) -> BaseOperator:

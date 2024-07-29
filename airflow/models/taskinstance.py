@@ -726,6 +726,8 @@ def _execute_task(task_instance: TaskInstance | TaskInstancePydantic, context: C
         if execute_callable.__name__ == "execute":
             execute_callable_kwargs[f"{task_to_execute.__class__.__name__}__sentinel"] = _sentinel
 
+    print("execute_callable_kwargs ")
+    print(execute_callable_kwargs)
     def _execute_callable(context: Context, **execute_callable_kwargs):
         try:
             # Print a marker for log grouping of details before task execution
@@ -2807,7 +2809,7 @@ class TaskInstance(Base, LoggingMixin):
                 return False
 
         if ti.next_kwargs is not None:
-            cls.logger().info("Resuming after deferral")
+            cls.logger().info("Resuming after deferral {}")
         else:
             cls.logger().info("Starting attempt %s of %s", ti.try_number, ti.max_tries + 1)
 

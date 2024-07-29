@@ -72,7 +72,7 @@ class AirflowRescheduleException(AirflowException):
     """
 
     def __init__(self, reschedule_date):
-        super().__init__()
+        super().__init__(reschedule_date)
         self.reschedule_date = reschedule_date
 
     def serialize(self):
@@ -429,7 +429,6 @@ except ImportError:
 
     class PodMutationHookException(AirflowException):  # type: ignore[no-redef]
         """Raised when exception happens during Pod Mutation Hook execution."""
-
 
 try:
     from airflow.providers.cncf.kubernetes.pod_generator import PodReconciliationError

@@ -146,7 +146,6 @@ TR = TaskReschedule
 _CURRENT_CONTEXT: list[Context] = []
 log = logging.getLogger(__name__)
 
-
 if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import PurePath
@@ -168,7 +167,6 @@ if TYPE_CHECKING:
     from airflow.timetables.base import DataInterval
     from airflow.typing_compat import Literal, TypeGuard
     from airflow.utils.task_group import TaskGroup
-
 
 PAST_DEPENDS_MET = "past_depends_met"
 
@@ -370,6 +368,15 @@ def _run_raw_task(
                 )
 
         return None
+
+
+def run_trigger_task(ti: TaskInstance | TaskInstancePydantic,
+                     session: Session | None = None, ):
+    context = ti.get_template_context(ignore_param_exceptions=False, session=session)
+    TaskInstance._execute_task_from_triggers(
+        self=ti,
+        context=context,
+    )
 
 
 @contextlib.contextmanager
@@ -726,8 +733,6 @@ def _execute_task(task_instance: TaskInstance | TaskInstancePydantic, context: C
         if execute_callable.__name__ == "execute":
             execute_callable_kwargs[f"{task_to_execute.__class__.__name__}__sentinel"] = _sentinel
 
-    print("execute_callable_kwargs ")
-    print(execute_callable_kwargs)
     def _execute_callable(context: Context, **execute_callable_kwargs):
         try:
             # Print a marker for log grouping of details before task execution
@@ -1510,7 +1515,8 @@ def _run_finished_callback(
             try:
                 callback(context)
             except Exception:
-                log.exception("Error when executing %s callback", callback.__name__)  # type: ignore[attr-defined]
+                log.exception("Error when executing %s callback",
+                              callback.__name__)  # type: ignore[attr-defined]
 
 
 def _log_state(*, task_instance: TaskInstance | TaskInstancePydantic, lead_msg: str = "") -> None:
@@ -2809,7 +2815,7 @@ class TaskInstance(Base, LoggingMixin):
                 return False
 
         if ti.next_kwargs is not None:
-            cls.logger().info("Resuming after deferral {}")
+            cls.logger().info("Resuming after deferral")
         else:
             cls.logger().info("Starting attempt %s of %s", ti.try_number, ti.max_tries + 1)
 
@@ -3130,6 +3136,28 @@ class TaskInstance(Base, LoggingMixin):
         :param task_orig: origin task
         """
         return _execute_task(self, context, task_orig)
+
+    def _execute_task_from_triggers(self, context: Context):
+        self.task.params = context["params"]
+        with set_current_context(context):
+            dag = self.task.get_dag()
+            if dag is not None:
+                jinja_env = dag.get_template_env()
+            else:
+                jinja_env = None
+            task_orig = self.render_templates(context=context, jinja_env=jinja_env)
+
+        airflow_context_vars = context_to_airflow_vars(context, in_env_var_format=True)
+        os.environ.update(airflow_context_vars)
+
+        with set_current_context(context):
+            try:
+                result = self.task.poke(
+                    context=context)  #_execute_task_sens(task_instance=self, task_orig=task_orig, context=context)
+            except Exception:
+                raise
+            else:  # If the task succeeded, render normally to let rendering error bubble up.
+                pass
 
     @provide_session
     def defer_task(self, exception: TaskDeferred | None, session: Session = NEW_SESSION) -> None:
@@ -3834,7 +3862,7 @@ class TaskInstance(Base, LoggingMixin):
                 ti
                 for ti in info.schedulable_tis
                 if ti.task_id not in skippable_task_ids
-                and not (
+                   and not (
                     ti.task.inherits_from_empty_operator
                     and not ti.task.on_execute_callback
                     and not ti.task.on_success_callback

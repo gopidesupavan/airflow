@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import time
 from typing import Any
 
-from airflow.exceptions import AirflowSensorTimeout
+from airflow.operators.python import get_current_context
 from airflow.sensors.base import BaseSensorOperator, PokeReturnValue
 from airflow.utils.context import Context
 
@@ -11,15 +10,13 @@ from airflow.utils.context import Context
 class DummySensor(BaseSensorOperator):
 
     def __init__(self,
-                 id,
                  **kwargs):
         super().__init__(**kwargs)
-        self.id = id
-        self.id1 = "1233"
-        self.id2 = "2e2112"
 
     def poke(self, context: Context) -> bool | PokeReturnValue:
-
+        contextv = get_current_context()
+        self.log.info("It is inside poke method")
+        self.log.info(contextv)
         return False
 
     def execute(self, context: Context) -> Any:

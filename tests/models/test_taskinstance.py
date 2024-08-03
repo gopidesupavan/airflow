@@ -79,6 +79,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.sensors.base import BaseSensorOperator
+from airflow.sensors.dummy_sensor import DummySensor
 from airflow.sensors.python import PythonSensor
 from airflow.serialization.serialized_objects import SerializedBaseOperator, SerializedDAG
 from airflow.settings import TIMEZONE
@@ -89,6 +90,7 @@ from airflow.ti_deps.dependencies_states import RUNNABLE_STATES
 from airflow.ti_deps.deps.base_ti_dep import TIDepStatus
 from airflow.ti_deps.deps.trigger_rule_dep import TriggerRuleDep, _UpstreamTIStates
 from airflow.utils import timezone
+from airflow.utils.airflow_flask_app import get_airflow_app
 from airflow.utils.db import merge_conn
 from airflow.utils.module_loading import qualname
 from airflow.utils.session import create_session, provide_session
@@ -431,7 +433,7 @@ class TestTaskInstance:
         )
         dag = ti.task.dag
 
-        ti.run(session=session)
+        # ti.run(session=session)
         tis = dag.get_task_instances()
         assert {"foo": "bar"} == tis[0].executor_config
         task2 = EmptyOperator(
@@ -440,17 +442,107 @@ class TestTaskInstance:
             start_date=timezone.datetime(2016, 2, 1, 0, 0, 0),
             dag=dag,
         )
+        ti = dagrun.get_task_instance(task_id=TEST_TASK_ID)
+        ti.task = dag.get_task(task_id=TEST_TASK_ID)
+        ti.run(ignore_ti_state=True)
 
         ti2 = TI(task=task2, run_id=ti.run_id)
         session.add(ti2)
         session.flush()
+        ti = TaskInstance.get_task_instance(
+            dag_id=ti2.dag_id, run_id=ti2.run_id, task_id=ti2.task_id, map_index=ti2.map_index
+        )
 
-        ti2.run(session=session)
-        # Ensure it's reloaded
-        ti2.executor_config = None
-        ti2.refresh_from_db(session)
-        assert {"bar": "baz"} == ti2.executor_config
-        session.rollback()
+        # print(ti)
+        # ser_ti = TI(task=ti run_id=ti.run_id)
+        # ser_ti.run(session=session)
+        # SerializedDagModel.write_dag(ti.task.dag)
+        dagbag = DagBag(read_dags_from_db=True)
+        dag = dagbag.get_dag(ti.task.dag.dag_id)
+        print(dag)
+        # serialized_op = SerializedBaseOperator.serialize_operator(ti.task)
+        # deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        # deserialized_op.dag = dag
+        # ser_ti = TI(task=deserialized_op, run_id=ti.run_id)
+        # ser_ti.run(session=session)
+        raise
+        #dag = ti.task.dag
+
+        #ti.run(session=session)
+        # tis = dag.get_task_instances()
+        # assert {"foo": "bar"} == tis[0].executor_config
+        # task2 = EmptyOperator(
+        #     task_id="test_run_pooling_task_op2",
+        #     executor_config={"bar": "baz"},
+        #     start_date=timezone.datetime(2016, 2, 1, 0, 0, 0),
+        #     dag=dag,
+        # )
+        # serialized_op = SerializedBaseOperator.serialize_operator(ti.task)
+        # deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        # # assert deserialized_op.task_type == "EmptyOperator"
+        # # Verify that ti.operator field renders correctly "with" Serialization
+        # deserialized_op.dag = ti.task.dag
+        # tiv = deserialized_op
+        # res = tiv
+        # print(res)
+        #
+        # ser_ti = TI(task=deserialized_op, run_id="1234")
+        # task2 = DummySensor(
+        #     task_id="test_run_pooling_task_op2",
+        #     executor_config={"bar": "baz"},
+        #     start_date=timezone.datetime(2016, 2, 1, 0, 0, 0),
+        #     dag=dag,
+        # )
+        # #ti2 = TI(task=task2, run_id=ti.run_id)
+        #
+        # dagbag = DagBag(
+        #     include_examples=False,
+        # )
+        # dag = dagbag.dags.get("test_parsing_context")
+        # task = dag.get_task("task1")
+
+        # dag.create_dagrun(
+        #     run_id="test",
+        #     data_interval=(DEFAULT_DATE, DEFAULT_DATE),
+        #     state=State.RUNNING,
+        #     start_date=DEFAULT_DATE,
+        # )
+        # ti = TaskInstance(task=task, run_id="test")
+        # job = Job(dag_id=ti.dag_id)
+        # job_runner = LocalTaskJobRunner(job=job, task_instance=ti, ignore_ti_state=True)
+        # task_runner = StandardTaskRunner(job_runner)
+        # task_runner.start()
+
+        # SerializedDagModel.write_dag(ti.task.dag)
+        # #serialized_dag = SerializedDagModel.get(dag.dag_id).dag
+        #
+        # serialized_dag = SerializedDAG.from_dict(SerializedDAG.to_dict(dag))
+        # serialized_task2 = serialized_dag.get_task("test_run_pooling_task_op2")
+        # serialized_unmapped_task = serialized_task2.unmap(None)
+        # dag_bag = DagBag(read_dags_from_db=True)
+        # dag: DAG = dag_bag.get_dag(dag.dag_id, session=session)
+        # ti2 = TI(task=dag.get_task("test_run_pooling_task_op2"), run_id=ti.run_id)
+        #
+        # ti2.run()
+
+
+        #ti2 = TI(task=serialized_op, run_id=ti.run_id)
+
+        # SerializedDagModel.write_dag(ti.task.dag)
+        # serialized_op = SerializedBaseOperator.serialize_operator(task2)
+        # deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        # deserialized_op.dag = dag
+        # # serialized_dag = SerializedDagModel.get(dag.dag_id).dag
+        # row = SerializedDagModel.get(dag.dag_id, session).dag
+        # print(row)
+        #
+        # ti2.refresh_from_task(ti2.task)
+        # ti2.refresh_from_db(session=session)
+        # context = ti2.get_template_context(ignore_param_exceptions=False, session=session)
+        # ti2.get_task_and_context(context=context)
+        # session.add(ti2)
+        # session.flush()
+        #raise
 
     def test_run_pooling_task_with_mark_success(self, create_task_instance):
         """
@@ -1826,6 +1918,7 @@ class TestTaskInstance:
         SerializedDagModel.write_dag(ti.task.dag)
 
         serialized_dag = SerializedDagModel.get(ti.task.dag.dag_id).dag
+
         ti_from_deserialized_task = TI(task=serialized_dag.get_task(ti.task_id), run_id=ti.run_id)
 
         assert ti_from_deserialized_task.try_number == 0
@@ -1910,6 +2003,7 @@ class TestTaskInstance:
         SerializedDagModel.write_dag(ti.task.dag)
 
         serialized_dag = SerializedDagModel.get(ti.task.dag.dag_id).dag
+
         ti_from_deserialized_task = TI(task=serialized_dag.get_task(ti.task_id), run_id=ti.run_id)
 
         assert not ti_from_deserialized_task.check_and_change_state_before_execution()
@@ -2139,7 +2233,6 @@ class TestTaskInstance:
     @patch("airflow.models.taskinstance.send_email")
     def test_failure_mapped_taskflow(self, mock_send_email, dag_maker, session, task_id):
         with dag_maker(session=session) as dag:
-
             @dag.task(email="to")
             def test_email_alert(x):
                 raise RuntimeError("Fail please")
@@ -2241,14 +2334,14 @@ class TestTaskInstance:
         assert session.query(DatasetDagRunQueue.target_dag_id).filter_by(
             dataset_id=event.dataset.id
         ).order_by(DatasetDagRunQueue.target_dag_id).all() == [
-            ("conditional_dataset_and_time_based_timetable",),
-            ("consume_1_and_2_with_dataset_expressions",),
-            ("consume_1_or_2_with_dataset_expressions",),
-            ("consume_1_or_both_2_and_3_with_dataset_expressions",),
-            ("dataset_consumes_1",),
-            ("dataset_consumes_1_and_2",),
-            ("dataset_consumes_1_never_scheduled",),
-        ]
+                   ("conditional_dataset_and_time_based_timetable",),
+                   ("consume_1_and_2_with_dataset_expressions",),
+                   ("consume_1_or_2_with_dataset_expressions",),
+                   ("consume_1_or_both_2_and_3_with_dataset_expressions",),
+                   ("dataset_consumes_1",),
+                   ("dataset_consumes_1_and_2",),
+                   ("dataset_consumes_1_never_scheduled",),
+               ]
 
         # check that one event record created for dataset1 and this TI
         assert session.query(DatasetModel.uri).join(DatasetEvent.dataset).filter(
@@ -2349,7 +2442,6 @@ class TestTaskInstance:
         from airflow.datasets import Dataset
 
         with dag_maker(schedule=None, session=session) as dag:
-
             @task(outlets=Dataset("test_outlet_dataset_extra_1"))
             def write1(*, outlet_events):
                 outlet_events["test_outlet_dataset_extra_1"].extra = {"foo": "bar"}
@@ -2390,7 +2482,6 @@ class TestTaskInstance:
         from airflow.datasets import Dataset
 
         with dag_maker(schedule=None, session=session):
-
             @task(outlets=Dataset("test_outlet_dataset_extra"))
             def write(*, outlet_events):
                 outlet_events["test_outlet_dataset_extra"].extra = {"one": 1}
@@ -2412,7 +2503,6 @@ class TestTaskInstance:
         from airflow.datasets.metadata import Metadata
 
         with dag_maker(schedule=None, session=session) as dag:
-
             @task(outlets=Dataset("test_outlet_dataset_extra_1"))
             def write1():
                 result = "write_1 result"
@@ -2467,7 +2557,6 @@ class TestTaskInstance:
         session.commit()
 
         with dag_maker(dag_id="producer_dag", schedule=None, session=session) as dag:
-
             @task(outlets=DatasetAlias(dsa_name_1))
             def producer(*, outlet_events):
                 outlet_events[dsa_name_1].add(Dataset(ds_uri))
@@ -2576,7 +2665,6 @@ class TestTaskInstance:
         session.commit()
 
         with dag_maker(dag_id="producer_dag", schedule=None, session=session) as dag:
-
             @task(outlets=DatasetAlias(dsa_name))
             def producer(*, outlet_events):
                 yield Metadata(ds_uri, extra={"key": "value"}, alias=dsa_name)
@@ -2615,7 +2703,6 @@ class TestTaskInstance:
         ds_uri = "did_not_exists"
 
         with dag_maker(dag_id="producer_dag", schedule=None, session=session) as dag:
-
             @task(outlets=DatasetAlias(dsa_name))
             def producer(*, outlet_events):
                 outlet_events[dsa_name].add(Dataset(ds_uri), extra={"key": "value"})
@@ -2770,7 +2857,6 @@ class TestTaskInstance:
         from airflow.datasets import DatasetAlias
 
         with dag_maker(schedule=None, session=session):
-
             @task(inlets=DatasetAlias(dsa_name))
             def read(*, inlet_events):
                 with pytest.raises(IndexError):
@@ -2906,7 +2992,6 @@ class TestTaskInstance:
         from airflow.datasets import Dataset
 
         with dag_maker(schedule=None, serialized=True) as dag1:
-
             @task(outlets=Dataset("test/1"))
             def test_task1():
                 print(1)
@@ -2917,7 +3002,6 @@ class TestTaskInstance:
         test_task1 = dag1.get_task("test_task1")
 
         with dag_maker(dag_id="testdag", schedule=[Dataset("test/1")], serialized=True):
-
             @task
             def test_task2():
                 print(1)
@@ -2928,7 +3012,6 @@ class TestTaskInstance:
         ti.run()
         # Change the dataset.
         with dag_maker(dag_id="testdag", schedule=[Dataset("test2/1")], serialized=True):
-
             @task
             def test_task2():
                 print(1)
@@ -3688,7 +3771,6 @@ class TestTaskInstance:
             end_date=DEFAULT_DATE + datetime.timedelta(days=10),
             user_defined_macros={"user_defined_macro": user_defined_macro},
         ):
-
             def foo(arg):
                 print(arg)
 
@@ -3893,22 +3975,42 @@ class TestTaskInstance:
                     getattr(ti, key) == expected_value
                 ), f"Key: {key} had different values. Make sure it loads it in the refresh refresh_from_db()"
 
-    def test_operator_field_with_serialization(self, create_task_instance):
+    @provide_session
+    def test_operator_field_with_serialization(self, create_task_instance, session):
         ti = create_task_instance()
-        assert ti.task.task_type == "EmptyOperator"
-        assert ti.task.operator_name == "EmptyOperator"
+        # assert ti.task.task_type == "EmptyOperator"
+        # assert ti.task.operator_name == "EmptyOperator"
 
         # Verify that ti.operator field renders correctly "without" Serialization
-        assert ti.operator == "EmptyOperator"
+        # assert ti.operator == "EmptyOperator"
 
         serialized_op = SerializedBaseOperator.serialize_operator(ti.task)
         deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
-        assert deserialized_op.task_type == "EmptyOperator"
+        # assert deserialized_op.task_type == "EmptyOperator"
         # Verify that ti.operator field renders correctly "with" Serialization
         deserialized_op.dag = ti.task.dag
-        ser_ti = TI(task=deserialized_op, run_id=None)
-        assert ser_ti.operator == "EmptyOperator"
-        assert ser_ti.task.operator_name == "EmptyOperator"
+        tiv = deserialized_op
+        res = tiv
+        print(res)
+
+        ser_ti = TI(task=deserialized_op, run_id="1234")
+        # task2 = EmptyOperator(
+        #     task_id="test_run_pooling_task_op2",
+        #     executor_config={"bar": "baz"},
+        #     start_date=timezone.datetime(2016, 2, 1, 0, 0, 0),
+        #     dag=dag,
+        # )
+        #
+        # ti2 = TI(task=task2, run_id=ti.run_id)
+        session.add(ser_ti)
+        session.flush()
+
+        # ti2.run(session=session)
+        ser_ti.run(session=session)
+
+        raise
+        # assert ser_ti.operator == "EmptyOperator"
+        # assert ser_ti.task.operator_name == "EmptyOperator"
 
     def test_clear_db_references(self, session, create_task_instance):
         tables = [TaskFail, RenderedTaskInstanceFields, XCom]
@@ -4134,7 +4236,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_not_recorded_if_leaf(self, dag_maker, xcom_value):
         """Return value should not be recorded if there are no downstreams."""
         with dag_maker(dag_id="test_not_recorded_for_unused") as dag:
-
             @dag.task()
             def push_something():
                 return xcom_value
@@ -4150,7 +4251,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_not_recorded_if_not_used(self, dag_maker, xcom_value):
         """Return value should not be recorded if no downstreams are mapped."""
         with dag_maker(dag_id="test_not_recorded_for_unused") as dag:
-
             @dag.task()
             def push_something():
                 return xcom_value
@@ -4171,7 +4271,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_not_recorded_if_irrelevant(self, dag_maker, xcom_1, xcom_4):
         """Return value should only be recorded if a mapped downstream uses the it."""
         with dag_maker(dag_id="test_not_recorded_for_unused") as dag:
-
             @dag.task()
             def push_1():
                 return xcom_1
@@ -4224,7 +4323,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_expand_error_if_unmappable_type(self, dag_maker, return_value, exception_type, error_message):
         """If an unmappable return value is used for expand(), fail the task that pushed the XCom."""
         with dag_maker(dag_id="test_expand_error_if_unmappable_type") as dag:
-
             @dag.task()
             def push_something():
                 return return_value
@@ -4259,7 +4357,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     ):
         """If an unmappable return value is used for expand_kwargs(), fail the task that pushed the XCom."""
         with dag_maker(dag_id="test_expand_kwargs_error_if_unmappable_type") as dag:
-
             @dag.task()
             def push():
                 return return_value
@@ -4290,7 +4387,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     ):
         """If an unmappable return value is used , fail the task that pushed the XCom."""
         with dag_maker(dag_id="test_task_group_expand_error_if_unmappable_type") as dag:
-
             @dag.task()
             def push():
                 return return_value
@@ -4325,7 +4421,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     ):
         """If an unmappable return value is used, fail the task that pushed the XCom."""
         with dag_maker(dag_id="test_task_group_expand_kwargs_error_if_unmappable_type") as dag:
-
             @dag.task()
             def push():
                 return return_value
@@ -4437,7 +4532,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_error_if_upstream_does_not_push(self, dag_maker):
         """Fail the upstream task if it fails to push the XCom used for task mapping."""
         with dag_maker(dag_id="test_not_recorded_for_unused") as dag:
-
             @dag.task(do_xcom_push=False)
             def push_something():
                 return [1, 2]
@@ -4460,7 +4554,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_error_if_unmappable_length(self, dag_maker):
         """If an unmappable return value is used to map, fail the task that pushed the XCom."""
         with dag_maker(dag_id="test_not_recorded_for_unused") as dag:
-
             @dag.task()
             def push_something():
                 return [1, 2]
@@ -4489,7 +4582,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_written_task_map(self, dag_maker, xcom_value, expected_length, expected_keys):
         """Return value should be recorded in TaskMap if it's used by a downstream to map."""
         with dag_maker(dag_id="test_written_task_map") as dag:
-
             @dag.task()
             def push_something():
                 return xcom_value
@@ -4515,7 +4607,6 @@ class TestTaskInstanceRecordTaskMapXComPush:
     def test_no_error_on_changing_from_non_mapped_to_mapped(self, dag_maker, session):
         """If a task changes from non-mapped to mapped, don't fail on integrity error."""
         with dag_maker(dag_id="test_no_error_on_changing_from_non_mapped_to_mapped") as dag:
-
             @dag.task()
             def add_one(x):
                 return [x + 1]
@@ -4558,7 +4649,6 @@ class TestMappedTaskInstanceReceiveValue:
         outputs = []
 
         with dag_maker(dag_id="literal", session=session) as dag:
-
             @dag.task
             def show(value):
                 outputs.append(value)
@@ -4591,7 +4681,6 @@ class TestMappedTaskInstanceReceiveValue:
         outputs = []
 
         with dag_maker(dag_id="xcom", session=session) as dag:
-
             @dag.task
             def emit():
                 return upstream_return
@@ -4662,7 +4751,6 @@ class TestMappedTaskInstanceReceiveValue:
         outputs = []
 
         with dag_maker(dag_id="product_same", session=session) as dag:
-
             @dag.task
             def emit_numbers():
                 return [1, 2]
@@ -4695,7 +4783,6 @@ class TestMappedTaskInstanceReceiveValue:
         outputs = []
 
         with dag_maker(dag_id="product_same_types", session=session) as dag:
-
             @dag.task
             def show(a, b):
                 outputs.append((a, b))
@@ -4925,7 +5012,6 @@ def test_expand_non_templated_field(dag_maker, session):
         template_fields = ()
 
     with dag_maker(dag_id="product_same_types", session=session) as dag:
-
         @dag.task
         def get_extra_env():
             return [{"foo": "bar"}, {"foo": "biz"}]
@@ -4945,7 +5031,6 @@ def test_mapped_task_does_not_error_in_mini_scheduler_if_upstreams_are_not_done(
     not marked as `upstream_failed'
     """
     with dag_maker() as dag:
-
         @dag.task
         def second_task():
             return [0, 1, 2]
@@ -4987,7 +5072,6 @@ def test_empty_operator_is_not_considered_in_mini_scheduler(dag_maker, caplog, s
     submit them directly to worker.
     """
     with dag_maker() as dag:
-
         @dag.task
         def first_task():
             print(2)
@@ -5027,7 +5111,6 @@ def test_empty_operator_is_not_considered_in_mini_scheduler(dag_maker, caplog, s
 def test_mapped_task_expands_in_mini_scheduler_if_upstreams_are_done(dag_maker, caplog, session):
     """Test that mini scheduler expands mapped task"""
     with dag_maker() as dag:
-
         @dag.task
         def second_task():
             return [0, 1, 2]
@@ -5067,7 +5150,6 @@ def test_mapped_task_expands_in_mini_scheduler_if_upstreams_are_done(dag_maker, 
 
 def test_mini_scheduler_not_skip_mapped_downstream_until_all_upstreams_finish(dag_maker, session):
     with dag_maker(session=session):
-
         @task
         def generate() -> list[list[int]]:
             return []

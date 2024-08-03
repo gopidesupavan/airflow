@@ -47,11 +47,13 @@ from airflow.executors.sequential_executor import SequentialExecutor
 from airflow.models import TaskInstance, TaskReschedule
 from airflow.models.xcom import XCom
 from airflow.operators.empty import EmptyOperator
+from airflow.operators.python import get_current_context
 from airflow.providers.celery.executors.celery_executor import CeleryExecutor
 from airflow.providers.celery.executors.celery_kubernetes_executor import CeleryKubernetesExecutor
 from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
 from airflow.providers.cncf.kubernetes.executors.local_kubernetes_executor import LocalKubernetesExecutor
 from airflow.sensors.base import BaseSensorOperator, PokeReturnValue, poke_mode_only, InternalSensorTrigger
+from airflow.serialization.serialized_objects import SerializedBaseOperator
 from airflow.ti_deps.deps.ready_to_reschedule import ReadyToRescheduleDep
 from airflow.utils import timezone
 from airflow.utils.session import create_session
@@ -86,6 +88,7 @@ class DummySensor(BaseSensorOperator):
         self.return_value = return_value
 
     def poke(self, context: Context):
+        contextv = get_current_context()
         return self.return_value
 
 
@@ -1067,10 +1070,26 @@ class TestBaseSensor:
             return_value=True
         )
 
-        with pytest.raises(TaskDeferred) as exc:
-            task.execute(None)
+        #test_operator_field_with_serialization
+        serialized = SerializedBaseOperator.serialize_operator(task)
+        deserialized = SerializedBaseOperator.deserialize_operator(serialized)
+        ti = deserialized.get_task_instances
 
-        assert isinstance(exc.value.trigger, InternalSensorTrigger)
+        ti()
+        # deserialized.operator_class.execute(deserialized.get_task_instances,context=None)
+        # from airflow.models.taskinstance import (
+        #     TaskInstance as TI
+        # )
+        #
+        # ser_ti = TI(task=deserialized, run_id=None)
+
+        raise
+
+
+        # with pytest.raises(TaskDeferred) as exc:
+        #     task.execute(None)
+        #
+        # assert isinstance(exc.value.trigger, InternalSensorTrigger)
 
 
 @poke_mode_only

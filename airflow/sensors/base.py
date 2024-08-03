@@ -17,22 +17,18 @@
 # under the License.
 from __future__ import annotations
 
-import ast
 import asyncio
 import base64
 import datetime
 import functools
 import hashlib
-import inspect
-import os
-import pickle
 import time
 import traceback
 import typing
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Callable, Iterable
 
-from asgiref.sync import sync_to_async
+import cloudpickle
 from sqlalchemy import select
 
 from airflow import settings
@@ -48,24 +44,21 @@ from airflow.exceptions import (
     TaskDeferralError,
 )
 from airflow.executors.executor_loader import ExecutorLoader
-from airflow.models import TaskInstance
+from airflow.models import TaskInstance, DagRun
 from airflow.models.baseoperator import BaseOperator
+from airflow.models.serialized_dag import SerializedDagModel
 from airflow.models.skipmixin import SkipMixin
-from airflow.models.taskinstance import _get_template_context
+from airflow.models.taskinstance import run_trigger_task
 from airflow.models.taskreschedule import TaskReschedule
-from airflow.operators.python import get_current_context
-from airflow.serialization.pydantic.taskinstance import TaskInstancePydantic
-from airflow.serialization.serialized_objects import SerializedBaseOperator
 from airflow.ti_deps.deps.ready_to_reschedule import ReadyToRescheduleDep
 from airflow.triggers.base import BaseTrigger, TriggerEvent
-from airflow.triggers.temporal import TimeDeltaTrigger, DateTimeTrigger, DummyTrigger
 from airflow.utils import timezone
-
+from airflow.utils.cli import get_dag
 # We need to keep the import here because GCSToLocalFilesystemOperator released in
 # Google Provider before 3.0.0 imported apply_defaults from here.
 # See  https://github.com/apache/airflow/issues/16035
 from airflow.utils.decorators import apply_defaults  # noqa: F401
-from airflow.utils.session import NEW_SESSION, provide_session, create_session
+from airflow.utils.session import NEW_SESSION, provide_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm.session import Session
@@ -137,53 +130,83 @@ class InternalSensorTrigger(BaseTrigger):
 
     def __init__(
         self,
-        cls_object: Any,
+        current_task_id: str,
         **kwargs,
     ):
         super().__init__()
-        self.cls_object = cls_object
+        self.current_task_id = current_task_id
 
     def serialize(self) -> tuple[str, dict[str, Any]]:
         """Serialize FileTrigger arguments and classpath."""
         return (
-            "airflow.sensors.base.DummySensorTrigger",
+            "airflow.sensors.base.InternalSensorTrigger",
             {
-                "cls_object": self.cls_object,
+                "current_task_id": self.current_task_id,
             },
         )
 
     @provide_session
-    def get_context(self, session: Session) -> Context:
-        query = session.query(TaskInstance).filter(
+    def get_task_context(self, session: Session):
+        ti = session.query(TaskInstance).filter(
             TaskInstance.dag_id == self.task_instance.dag_id,
             TaskInstance.task_id == self.task_instance.task_id,
             TaskInstance.run_id == self.task_instance.run_id,
             TaskInstance.map_index == self.task_instance.map_index,
-        )
-        task_instance = query.one_or_none()
-        dag = task_instance.dag_model.serialized_dag.dag
-        task_instance.task = dag.task_dict[task_instance.task_id]
-        task_instance.task.dag = dag
+        ).first()
 
-        context: Context = _get_template_context(
-            task_instance=task_instance,
-            dag=task_instance.task.dag,
-            ignore_param_exceptions=True,
-        )
-        return context
+        if ti:
+            from airflow.models import DagBag
+            # Load the DAG
+            DagRun()
+            task = SerializedDagModel.get_serialized_dag(
+                dag_id=ti.dag_id, task_id=ti.task_id, session=session
+            )
+            # dag_model = session.query(DagModel).filter(
+            #     DagModel.dag_id == ti.dag_id
+            # ).first()
+            #
+            # dag = dag_model.se
+            # # Retrieve the task object
+            # task = dag.get_task(ti.task_id)
+
+            new_ti = TaskInstance(
+                task=task,
+                run_id=self.task_instance.run_id,
+                map_index=self.task_instance.map_index,
+            )
+            run_trigger_task(ti=new_ti, session=session)
+
+            # print(f"Task ID: {task.task_id}, DAG ID: {task.dag_id}")
+        else:
+            print("No task instance found.")
+
+        return None
+        # dag_bag = DagBag(read_dags_from_db=True)
+        # dag: DAG = dag_bag.get_dag(self.task_instance.dag_id, session=session)
+        # _dag = dag
+        # # task = dag.get_task(task_id=self.task_instance.task_id)
+        # task = _dag.get_task(task_id=self.task_instance.task_id)
+        # ti, _ = _get_ti(task, self.task_instance.map_index, exec_date_or_run_id=self.task_instance.run_id,)
+        # # ti = TaskInstance(task=task, map_index=)
+        # # ti, _ = _get_ti(task, self.task_instance.map_index, exec_date_or_run_id=self.task_instance.run_id)
+        # # ti.get_executable_task_for_trigger(ti=ti)
+        #
+        # ti = TaskInstance(task=dag.get_task(self.task_instance.task_id), run_id=self.task_instance.run_id,
+        #                    map_index=self.task_instance.map_index)
+        # ti.run()
+
+        # ti.get_executable_task_for_trigger(ti=ti)
+
+    def get_t_context(self):
+
+        return self.get_task_context()
 
     async def run(self) -> typing.AsyncIterator[TriggerEvent]:
-
-        context: Context = self.get_context()
-
-        #deserializing sensor instance object
-
-        self_object = pickle.loads(base64.b64decode(self.cls_object.encode('utf-8')))
-
         try:
-            poke_return = await self_object.async_sensor_wrapper(context=context)
+            poke_return = self.get_t_context()
+            #ti.get_executable_task_for_trigger(context=context)
         except Exception as e:
-            exception = base64.b64encode(pickle.dumps(e)).decode('utf-8')
+            exception = base64.b64encode(cloudpickle.dumps(e)).decode('utf-8')
             yield TriggerEvent({"status": "failed", "exception": exception})
         else:
             yield TriggerEvent({"status": "success", "poke_return": poke_return})
@@ -253,7 +276,7 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
         silent_fail: bool = False,
         never_fail: bool = False,
         reschedule_time_threshold: timedelta | float = 60,
-        run_in_trigger: bool = False,
+        run_in_trigger: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -428,10 +451,9 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
 
     def execute(self, context: Context) -> Any:
         if self.run_in_trigger:
-            self_object = base64.b64encode(pickle.dumps(self)).decode('utf-8')
             self.defer(
                 trigger=InternalSensorTrigger(
-                    cls_object=self_object,
+                    current_task_id=self.task_id,
                 ),
                 method_name="execute_complete"
             )
@@ -440,9 +462,9 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
 
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None):
         if event.get("status") == "failed":
-            exception = pickle.loads(base64.b64decode(event.get("exception").encode('utf-8')))
-
+            exception = cloudpickle.loads(base64.b64decode(event.get("exception").encode('utf-8')))
             raise exception
+        return event.get("poke_return")
 
     def resume_execution(self, next_method: str, next_kwargs: dict[str, Any] | None, context: Context):
         try:

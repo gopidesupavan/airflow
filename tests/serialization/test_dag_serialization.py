@@ -562,7 +562,12 @@ class TestStringifiedDAGs:
         # Verify deserialized DAGs.
         for dag in dags.values():
             serialized_dag = SerializedDAG.from_json(SerializedDAG.to_json(dag))
+            print(serialized_dag)
+            print(dag)
+            print(type(serialized_dag))
+            print(type(dag))
             self.validate_deserialized_dag(serialized_dag, dag)
+            raise
 
     @pytest.mark.db_test
     @pytest.mark.parametrize(
@@ -1369,7 +1374,10 @@ class TestStringifiedDAGs:
 
         SerializedDAG._json_schema.validate(blob, _schema=load_dag_schema_dict()["definitions"]["operator"])
         serialized_op = SerializedBaseOperator.deserialize_operator(blob)
+        print(serialized_op)
+        print(type(serialized_op))
         assert serialized_op.downstream_task_ids == {"foo"}
+        raise
 
     def test_task_resources(self):
         """
@@ -1647,11 +1655,15 @@ class TestStringifiedDAGs:
         serialized = SerializedBaseOperator.serialize_mapped_operator(op)
         assert "inlets" not in serialized
         assert "outlets" not in serialized
-
+        print(serialized)
+        print(type(serialized))
         round_tripped = SerializedBaseOperator.deserialize_operator(serialized)
+        print(round_tripped)
+        print(type(round_tripped))
         assert isinstance(round_tripped, MappedOperator)
         assert round_tripped.inlets == []
         assert round_tripped.outlets == []
+        raise
 
     @pytest.mark.db_test
     def test_derived_dag_deps_sensor(self):
@@ -2002,15 +2014,26 @@ class TestStringifiedDAGs:
             task1 = EmptyOperator(task_id="task1")
             task2 = EmptyOperator(task_id="task2")
             task1 >> Label("test label") >> task2
-
+        print(dag)
+        print(type(dag))
         dag_dict = SerializedDAG.to_dict(dag)
         SerializedDAG.validate_schema(dag_dict)
         json_dag = SerializedDAG.from_json(SerializedDAG.to_json(dag))
+        print(json_dag)
+        print(type(json_dag))
         self.validate_deserialized_dag(json_dag, dag)
 
         serialized_dag = SerializedDAG.deserialize_dag(SerializedDAG.serialize_dag(dag))
+        print(serialized_dag)
+        print(type(serialized_dag))
+
+        orig = SerializedDAG.from_dict(dag_dict)
+        print(orig)
+        print(type(orig))
+        print(type(orig.get_task(task_id="task1")))
 
         assert serialized_dag.edge_info == dag.edge_info
+        raise
 
     @pytest.mark.db_test
     @pytest.mark.parametrize("mode", ["poke", "reschedule"])
@@ -2023,12 +2046,23 @@ class TestStringifiedDAGs:
 
         op = DummySensor(task_id="dummy", mode=mode, poke_interval=23)
 
+        print(op)
+        print(type(op))
         blob = SerializedBaseOperator.serialize_operator(op)
+        print(blob)
+        print(type(blob))
         assert "deps" in blob
 
         serialized_op = SerializedBaseOperator.deserialize_operator(blob)
+        print(serialized_op)
+        print(type(serialized_op))
+        des = SerializedBaseOperator.from_dict(blob)
+        print(des)
+        print(type(des))
         assert serialized_op.reschedule == (mode == "reschedule")
         assert op.deps == serialized_op.deps
+
+        raise
 
     @pytest.mark.parametrize("mode", ["poke", "reschedule"])
     def test_serialize_mapped_sensor_has_reschedule_dep(self, mode):
@@ -2424,6 +2458,7 @@ def test_operator_expand_serde():
     }
 
     op = BaseSerialization.deserialize(serialized)
+
     assert isinstance(op, MappedOperator)
     assert op.deps is MappedOperator.deps_for(BaseOperator)
 
@@ -2610,12 +2645,18 @@ def test_operator_expand_deserialized_unmap():
 
     ser_mapped = BaseSerialization.serialize(mapped)
     deser_mapped = BaseSerialization.deserialize(ser_mapped)
+
     deser_mapped.dag = None
 
+    print(normal)
+    print(type(normal))
     ser_normal = BaseSerialization.serialize(normal)
+    print(ser_normal)
+    print(type(ser_normal))
     deser_normal = BaseSerialization.deserialize(ser_normal)
     deser_normal.dag = None
     assert deser_mapped.unmap(None) == deser_normal
+    raise
 
 
 @pytest.mark.db_test
@@ -2626,16 +2667,27 @@ def test_sensor_expand_deserialized_unmap():
         normal = BashSensor(task_id="a", bash_command=[1, 2], mode="reschedule")
         mapped = BashSensor.partial(task_id="b", mode="reschedule").expand(bash_command=[1, 2])
     ser_mapped = SerializedBaseOperator.serialize(mapped)
+    print(normal)
+    print(type(normal))
     deser_mapped = SerializedBaseOperator.deserialize(ser_mapped)
     deser_mapped.dag = dag
     deser_unmapped = deser_mapped.unmap(None)
     ser_normal = SerializedBaseOperator.serialize(normal)
+    print(ser_normal)
+    print(type(ser_normal))
     deser_normal = SerializedBaseOperator.deserialize(ser_normal)
+    print(deser_normal)
+    print(type(deser_normal))
     deser_normal.dag = dag
+    deser_normal_unmapped = deser_normal.unmap(None)
+    print(deser_normal_unmapped)
+    print(type(deser_normal_unmapped))
+    op = SerializedBaseOperator.deserialize_operator(ser_normal)
+    print(op)
     comps = set(BashSensor._comps)
     comps.remove("task_id")
     assert all(getattr(deser_unmapped, c, None) == getattr(deser_normal, c, None) for c in comps)
-
+    raise
 
 def test_task_resources_serde():
     """

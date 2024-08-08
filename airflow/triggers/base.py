@@ -165,7 +165,7 @@ class TriggerEvent:
 
         # Remove ourselves as its trigger
         task_instance.trigger_id = None
-
+        print(f"It is inside handle submit event {task_instance}")
         # Set the state of the task instance to scheduled
         task_instance.state = TaskInstanceState.SCHEDULED
 

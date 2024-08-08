@@ -72,7 +72,7 @@ class AirflowRescheduleException(AirflowException):
     """
 
     def __init__(self, reschedule_date):
-        super().__init__()
+        super().__init__(reschedule_date)
         self.reschedule_date = reschedule_date
 
     def serialize(self):

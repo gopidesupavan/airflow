@@ -1112,12 +1112,20 @@ class TestExternalTaskMarker:
             external_task_id="child_task1",
             dag=dag,
         )
-
+        print(task)
+        print(type(task))
         serialized_op = SerializedBaseOperator.serialize_operator(task)
+        print(serialized_op)
+        print(type(serialized_op))
         deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        deserialized_op.dag = dag
+        print(deserialized_op)
+        print(type(deserialized_op))
+        print(deserialized_op.operator_name)
         assert deserialized_op.task_type == "ExternalTaskMarker"
         assert getattr(deserialized_op, "external_dag_id") == "external_task_marker_child"
         assert getattr(deserialized_op, "external_task_id") == "child_task1"
+        raise
 
 
 @pytest.fixture

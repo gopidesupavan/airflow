@@ -53,6 +53,7 @@ from airflow.exceptions import (
     UnmappableXComTypePushed,
     XComForMappingNotPushed,
 )
+from airflow.models import Operator
 from airflow.models.connection import Connection
 from airflow.models.dag import DAG
 from airflow.models.dagbag import DagBag
@@ -80,7 +81,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.sensors.base import BaseSensorOperator
 from airflow.sensors.python import PythonSensor
-from airflow.serialization.serialized_objects import SerializedBaseOperator, SerializedDAG
+from airflow.serialization.serialized_objects import SerializedBaseOperator, SerializedDAG, BaseSerialization
 from airflow.settings import TIMEZONE
 from airflow.stats import Stats
 from airflow.ti_deps.dep_context import DepContext
@@ -431,7 +432,7 @@ class TestTaskInstance:
         )
         dag = ti.task.dag
 
-        ti.run(session=session)
+        # ti.run(session=session)
         tis = dag.get_task_instances()
         assert {"foo": "bar"} == tis[0].executor_config
         task2 = EmptyOperator(
@@ -445,12 +446,34 @@ class TestTaskInstance:
         session.add(ti2)
         session.flush()
 
-        ti2.run(session=session)
-        # Ensure it's reloaded
-        ti2.executor_config = None
-        ti2.refresh_from_db(session)
-        assert {"bar": "baz"} == ti2.executor_config
-        session.rollback()
+        serialized_op = SerializedBaseOperator.serialize_operator(ti.task)
+        deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        des = SerializedBaseOperator.to_dict(serialized_op)
+        print(des)
+        # v = cast(Operator, deserialized_op)
+        #
+        # print(deserialized_op)
+        # print(type(deserialized_op))
+        # print(type(v))
+
+        # assert deserialized_op.task_type == "EmptyOperator"
+        # # Verify that ti.operator field renders correctly "with" Serialization
+        # deserialized_op.dag = ti.task.dag
+        # ser_ti = TI(task=deserialized_op, run_id=ti.run_id)
+        # context = ser_ti.get_template_context()
+        # task = ser_ti.task.unmap((context, session))
+        # print(task)
+        # print(type(task))
+        # ser_ti.refresh_from_task(task=deserialized_op)
+        # ser_ti.run(session=session)
+        raise
+
+        # ti2.run(session=session)
+        # # Ensure it's reloaded
+        # ti2.executor_config = None
+        # ti2.refresh_from_db(session)
+        # assert {"bar": "baz"} == ti2.executor_config
+        # session.rollback()
 
     def test_run_pooling_task_with_mark_success(self, create_task_instance):
         """
@@ -3905,12 +3928,16 @@ class TestTaskInstance:
 
         serialized_op = SerializedBaseOperator.serialize_operator(ti.task)
         deserialized_op = SerializedBaseOperator.deserialize_operator(serialized_op)
+        print(deserialized_op)
+        print(type(deserialized_op))
         assert deserialized_op.task_type == "EmptyOperator"
         # Verify that ti.operator field renders correctly "with" Serialization
         deserialized_op.dag = ti.task.dag
         ser_ti = TI(task=deserialized_op, run_id=None)
+        ser_ti.run()
         assert ser_ti.operator == "EmptyOperator"
         assert ser_ti.task.operator_name == "EmptyOperator"
+        raise
 
     def test_clear_db_references(self, session, create_task_instance):
         tables = [TaskFail, RenderedTaskInstanceFields, XCom]

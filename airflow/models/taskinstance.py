@@ -26,9 +26,11 @@ import math
 import operator
 import os
 import signal
+import typing
 import warnings
 from collections import defaultdict
 from contextlib import nullcontext
+from contextvars import ContextVar
 from datetime import timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Collection, Generator, Iterable, Mapping, Tuple
@@ -144,8 +146,8 @@ from airflow.utils.xcom import XCOM_RETURN_KEY
 TR = TaskReschedule
 
 _CURRENT_CONTEXT: list[Context] = []
-log = logging.getLogger(__name__)
 
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -168,7 +170,6 @@ if TYPE_CHECKING:
     from airflow.timetables.base import DataInterval
     from airflow.typing_compat import Literal, TypeGuard
     from airflow.utils.task_group import TaskGroup
-
 
 PAST_DEPENDS_MET = "past_depends_met"
 
@@ -248,6 +249,7 @@ def _run_raw_task(
     if not test_mode:
         TaskInstance.save_to_db(ti=ti, session=session)
     actual_start_date = timezone.utcnow()
+    print(f"actual_start_date {actual_start_date}")
     Stats.incr(f"ti.start.{ti.task.dag_id}.{ti.task.task_id}", tags=ti.stats_tags)
     # Same metric with tagging
     Stats.incr("ti.start", tags=ti.stats_tags)
@@ -267,7 +269,7 @@ def _run_raw_task(
     with set_current_task_instance_session(session=session):
         ti.task = ti.task.prepare_for_execution()
         context = ti.get_template_context(ignore_param_exceptions=False, session=session)
-
+        context["actual_start_date"] = actual_start_date
         try:
             if not mark_success:
                 TaskInstance._execute_task_with_callbacks(
@@ -369,6 +371,20 @@ def _run_raw_task(
                 )
 
         return None
+
+
+async def run_trigger_task(ti: TaskInstance | TaskInstancePydantic,
+                           session: Session | None = None, ):
+    context = ti.get_template_context(ignore_param_exceptions=False, session=session)
+
+    exec_task = await TaskInstance._execute_task_from_triggers(
+        self=ti,
+        context=context,
+    )
+
+    return exec_task, context
+
+
 
 
 @contextlib.contextmanager
@@ -1536,7 +1552,8 @@ def _run_finished_callback(
             try:
                 callback(context)
             except Exception:
-                log.exception("Error when executing %s callback", callback.__name__)  # type: ignore[attr-defined]
+                log.exception("Error when executing %s callback",
+                              callback.__name__)  # type: ignore[attr-defined]
 
 
 def _log_state(*, task_instance: TaskInstance | TaskInstancePydantic, lead_msg: str = "") -> None:
@@ -1715,6 +1732,7 @@ def _handle_reschedule(
     ti,
     actual_start_date: datetime,
     reschedule_exception: AirflowRescheduleException,
+    reschedule_date=None,
     test_mode: bool = False,
     session: Session = NEW_SESSION,
 ):
@@ -3156,6 +3174,23 @@ class TaskInstance(Base, LoggingMixin):
         """
         return _execute_task(self, context, task_orig)
 
+    async def _execute_task_from_triggers(self, context: Context):
+        self.task.params = context["params"]
+        with set_current_context(context):
+            dag = self.task.get_dag()
+            if dag is not None:
+                jinja_env = dag.get_template_env()
+            else:
+                jinja_env = None
+            task_orig = self.render_templates(context=context, jinja_env=jinja_env)
+
+        # airflow_context_vars = context_to_airflow_vars(context, in_env_var_format=True)
+        # os.environ.update(airflow_context_vars)
+        return self.task
+        # async with async_set_current_context(context):
+        #     result = await self.task.async_sensor_wrapper(context=context)
+        #     return result
+
     @provide_session
     def defer_task(self, exception: TaskDeferred | None, session: Session = NEW_SESSION) -> None:
         """
@@ -3860,7 +3895,7 @@ class TaskInstance(Base, LoggingMixin):
                 ti
                 for ti in info.schedulable_tis
                 if ti.task_id not in skippable_task_ids
-                and not (
+                   and not (
                     ti.task.inherits_from_empty_operator
                     and not ti.task.on_execute_callback
                     and not ti.task.on_success_callback

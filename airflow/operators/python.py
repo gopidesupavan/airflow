@@ -49,6 +49,7 @@ from airflow.models.skipmixin import SkipMixin
 from airflow.models.taskinstance import _CURRENT_CONTEXT
 from airflow.models.variable import Variable
 from airflow.operators.branch import BranchMixIn
+from airflow.sensors.base import get_current_context as async_get_current_context
 from airflow.typing_compat import Literal
 from airflow.utils import hashlib_wrapper
 from airflow.utils.context import context_copy_partial, context_get_outlet_events, context_merge
@@ -1087,7 +1088,7 @@ class BranchExternalPythonOperator(ExternalPythonOperator, BranchMixIn):
         return self.do_branch(context, super().execute(context))
 
 
-def get_current_context() -> Context:
+def get_current_context(sensor_trigger_context: bool = False) -> Context:
     """
     Retrieve the execution context dictionary without altering user method's signature.
 
@@ -1114,9 +1115,15 @@ def get_current_context() -> Context:
     Current context will only have value if this method was called after an operator
     was starting to execute.
     """
-    if not _CURRENT_CONTEXT:
-        raise AirflowException(
-            "Current context was requested but no context was found! "
-            "Are you running within an airflow task?"
-        )
-    return _CURRENT_CONTEXT[-1]
+
+    if _CURRENT_CONTEXT:
+        return _CURRENT_CONTEXT[-1]
+    else:
+        context = async_get_current_context()
+        if context:
+            return context
+
+    raise AirflowException(
+        "Current context was requested but no context was found! "
+        "Are you running within an airflow task?"
+    )

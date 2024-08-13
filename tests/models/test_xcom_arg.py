@@ -22,11 +22,11 @@ from airflow.models.xcom_arg import XComArg
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.utils.types import NOTSET
+from airflow.www.api.experimental.endpoints import test
 from tests.test_utils.config import conf_vars
 from tests.test_utils.db import clear_db_dags, clear_db_runs
 
 pytestmark = pytest.mark.db_test
-
 
 VALUE = 42
 
@@ -72,7 +72,7 @@ class TestXComArgBuild:
         assert str(actual) == expected_str
         assert (
             f"echo {actual}" == "echo {{ task_instance.xcom_pull(task_ids='test_xcom_op', "
-            "dag_id='test_xcom_dag', key='test_key') }}"
+                                "dag_id='test_xcom_dag', key='test_key') }}"
         )
 
     def test_xcom_key_is_empty_str(self, dag_maker):
@@ -81,7 +81,7 @@ class TestXComArgBuild:
         assert actual.key == ""
         assert (
             str(actual) == "{{ task_instance.xcom_pull(task_ids='test_xcom_op', "
-            "dag_id='test_xcom_dag', key='') }}"
+                           "dag_id='test_xcom_dag', key='') }}"
         )
 
     def test_set_downstream(self, dag_maker):
@@ -184,6 +184,7 @@ class TestXComArgRuntime:
         dag.run()
 
 
+
 @pytest.mark.parametrize(
     "fillvalue, expected_results",
     [
@@ -191,7 +192,7 @@ class TestXComArgRuntime:
         (None, {("a", 1), ("b", 2), ("c", 3), (None, 4)}),
     ],
 )
-def test_xcom_zip(dag_maker, session, fillvalue, expected_results):
+def test_xcom_zip(dag_maker, fillvalue, expected_results, session):
     results = set()
     with dag_maker(session=session) as dag:
 
@@ -209,7 +210,7 @@ def test_xcom_zip(dag_maker, session, fillvalue, expected_results):
 
         pull.expand(value=push_letters().zip(push_numbers(), fillvalue=fillvalue))
 
-    dr = dag_maker.create_dagrun()
+    dr = dag_maker.create_dagrun(session=session)
 
     # Run "push_letters" and "push_numbers".
     decision = dr.task_instance_scheduling_decisions(session=session)

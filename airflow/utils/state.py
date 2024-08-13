@@ -58,6 +58,7 @@ class TaskInstanceState(str, Enum):
     UPSTREAM_FAILED = "upstream_failed"  # One or more upstream deps failed
     SKIPPED = "skipped"  # Skipped by branching or some other mechanism
     DEFERRED = "deferred"  # Deferrable operator waiting on a trigger
+    DEFERRED_QUEUED = "deferred_queued"
 
     # Not used anymore, kept for compatibility.
     # TODO: Remove in Airflow 3.0.

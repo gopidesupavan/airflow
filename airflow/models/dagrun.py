@@ -784,8 +784,10 @@ class DagRun(Base, LoggingMixin):
                 return (
                     bool(self.tis)
                     and all(not t.task.depends_on_past for t in self.tis)  # type: ignore[union-attr]
-                    and all(t.task.max_active_tis_per_dag is None for t in self.tis)  # type: ignore[union-attr]
-                    and all(t.task.max_active_tis_per_dagrun is None for t in self.tis)  # type: ignore[union-attr]
+                    and all(
+                    t.task.max_active_tis_per_dag is None for t in self.tis)  # type: ignore[union-attr]
+                    and all(
+                    t.task.max_active_tis_per_dagrun is None for t in self.tis)  # type: ignore[union-attr]
                     and all(t.state != TaskInstanceState.DEFERRED for t in self.tis)
                 )
 
@@ -962,7 +964,7 @@ class DagRun(Base, LoggingMixin):
 
         return schedulable_tis, callback
 
-    @provide_session
+    @internal_api_call
     def task_instance_scheduling_decisions(self, session: Session = NEW_SESSION) -> TISchedulingDecision:
         tis = self.get_task_instances(session=session, state=State.task_states)
         self.log.debug("number of tis tasks for %s: %s task(s)", self, len(tis))
@@ -1329,7 +1331,8 @@ class DagRun(Base, LoggingMixin):
         created_counts: dict[str, int],
         ti_mutation_hook: Callable,
         hook_is_noop: Literal[True],
-    ) -> Callable[[Operator, Iterable[int]], Iterator[dict[str, Any]]]: ...
+    ) -> Callable[[Operator, Iterable[int]], Iterator[dict[str, Any]]]:
+        ...
 
     @overload
     def _get_task_creator(
@@ -1337,7 +1340,8 @@ class DagRun(Base, LoggingMixin):
         created_counts: dict[str, int],
         ti_mutation_hook: Callable,
         hook_is_noop: Literal[False],
-    ) -> Callable[[Operator, Iterable[int]], Iterator[TI]]: ...
+    ) -> Callable[[Operator, Iterable[int]], Iterator[TI]]:
+        ...
 
     def _get_task_creator(
         self,

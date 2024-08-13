@@ -1698,7 +1698,7 @@ def _defer_task(
     # Then, update ourselves so it matches the deferral request
     # Keep an eye on the logic in `check_and_change_state_before_execution()`
     # depending on self.next_method semantics
-    ti.state = TaskInstanceState.DEFERRED
+    ti.state = TaskInstanceState.DEFERRED_QUEUED
     ti.trigger_id = trigger_row.id
     ti.next_method = next_method
     ti.next_kwargs = next_kwargs or {}

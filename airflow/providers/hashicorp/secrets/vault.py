@@ -191,21 +191,21 @@ class VaultBackend(BaseSecretsBackend, LoggingMixin):
             secret_path=(mount_point + "/" if mount_point else "") + secret_path
         )
 
-    @deprecated(
-        reason="Method `VaultBackend.get_conn_uri` is deprecated and will be removed in a future release.",
-        category=AirflowProviderDeprecationWarning,
-    )
-    def get_conn_uri(self, conn_id: str) -> str | None:
-        """
-        Get serialized representation of connection.
-
-        :param conn_id: The connection id
-        :return: The connection uri retrieved from the secret
-        """
-        # Since VaultBackend implements `get_connection`, `get_conn_uri` is not used. So we
-        # don't need to implement (or direct users to use) method `get_conn_value` instead
-        response = self.get_response(conn_id)
-        return response.get("conn_uri") if response else None
+    # @deprecated(
+    #     reason="Method `VaultBackend.get_conn_uri` is deprecated and will be removed in a future release.",
+    #     category=AirflowProviderDeprecationWarning,
+    # )
+    # def get_conn_uri(self, conn_id: str) -> str | None:
+    #     """
+    #     Get serialized representation of connection.
+    #
+    #     :param conn_id: The connection id
+    #     :return: The connection uri retrieved from the secret
+    #     """
+    #     # Since VaultBackend implements `get_connection`, `get_conn_uri` is not used. So we
+    #     # don't need to implement (or direct users to use) method `get_conn_value` instead
+    #     response = self.get_response(conn_id)
+    #     return response.get("conn_uri") if response else None
 
     # Make sure connection is imported this way for type checking, otherwise when importing
     # the backend it will get a circular dependency and fail
@@ -229,6 +229,7 @@ class VaultBackend(BaseSecretsBackend, LoggingMixin):
             return None
 
         uri = response.get("conn_uri")
+        print(uri)
         if uri:
             return Connection(conn_id, uri=uri)
 

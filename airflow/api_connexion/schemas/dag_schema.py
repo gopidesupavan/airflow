@@ -75,6 +75,7 @@ class DAGSchema(SQLAlchemySchema):
     next_dagrun_data_interval_start = auto_field(dump_only=True)
     next_dagrun_data_interval_end = auto_field(dump_only=True)
     next_dagrun_create_after = auto_field(dump_only=True)
+    max_active_tasks_include_deferred = auto_field(dump_only=True)
 
     @staticmethod
     def get_owners(obj: DagModel):

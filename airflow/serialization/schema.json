@@ -171,6 +171,7 @@
         "_max_active_tasks": { "type" : "number"},
         "max_active_runs": { "type" : "number"},
         "max_consecutive_failed_dag_runs": { "type" : "number"},
+        "max_active_tasks_include_deferred": {"type": "boolean"},
         "default_args": { "$ref": "#/definitions/dict" },
         "start_date": { "$ref": "#/definitions/datetime" },
         "end_date": { "$ref": "#/definitions/datetime" },

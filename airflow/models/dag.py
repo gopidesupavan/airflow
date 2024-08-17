@@ -362,6 +362,7 @@ DAG_ARGS_EXPECTED_TYPES = {
     "max_active_tasks": int,
     "max_active_runs": int,
     "max_consecutive_failed_dag_runs": int,
+    "max_active_tasks_include_deferred": bool,
     "dagrun_timeout": timedelta,
     "default_view": str,
     "orientation": str,
@@ -537,6 +538,7 @@ class DAG(LoggingMixin):
         max_consecutive_failed_dag_runs: int = airflow_conf.getint(
             "core", "max_consecutive_failed_dag_runs_per_dag"
         ),
+        max_active_tasks_include_deferred: bool = False,
         dagrun_timeout: timedelta | None = None,
         sla_miss_callback: None | SLAMissCallback | list[SLAMissCallback] = None,
         default_view: str = airflow_conf.get_mandatory_value("webserver", "dag_default_view").lower(),
@@ -700,6 +702,7 @@ class DAG(LoggingMixin):
         self.safe_dag_id = dag_id.replace(".", "__dot__")
         self.max_active_runs = max_active_runs
         self.max_consecutive_failed_dag_runs = max_consecutive_failed_dag_runs
+        self.max_active_tasks_include_deferred = max_active_tasks_include_deferred
         if self.max_consecutive_failed_dag_runs == 0:
             self.max_consecutive_failed_dag_runs = airflow_conf.getint(
                 "core", "max_consecutive_failed_dag_runs_per_dag"
@@ -2916,6 +2919,7 @@ class DAG(LoggingMixin):
             orm_dag.max_active_tasks = dag.max_active_tasks
             orm_dag.max_active_runs = dag.max_active_runs
             orm_dag.max_consecutive_failed_dag_runs = dag.max_consecutive_failed_dag_runs
+            orm_dag.max_active_tasks_include_deferred = dag.max_active_tasks_include_deferred
             orm_dag.has_task_concurrency_limits = any(
                 t.max_active_tis_per_dag is not None or t.max_active_tis_per_dagrun is not None
                 for t in dag.tasks
@@ -3442,6 +3446,7 @@ class DagModel(Base):
     max_active_tasks = Column(Integer, nullable=False)
     max_active_runs = Column(Integer, nullable=True)
     max_consecutive_failed_dag_runs = Column(Integer, nullable=False)
+    max_active_tasks_include_deferred = Column(Boolean, nullable=False)
 
     has_task_concurrency_limits = Column(Boolean, nullable=False)
     has_import_errors = Column(Boolean(), default=False, server_default="0")
@@ -3501,6 +3506,10 @@ class DagModel(Base):
         if self.has_task_concurrency_limits is None:
             # Be safe -- this will be updated later once the DAG is parsed
             self.has_task_concurrency_limits = True
+
+        if self.max_active_tasks_include_deferred is None:
+            # Be safe -- this will be updated later once the DAG is parsed
+            self.max_active_tasks_include_deferred = False
 
     def __repr__(self):
         return f"<DAG: {self.dag_id}>"
@@ -3800,6 +3809,7 @@ def dag(
     max_consecutive_failed_dag_runs: int = airflow_conf.getint(
         "core", "max_consecutive_failed_dag_runs_per_dag"
     ),
+    max_active_tasks_include_deferred: bool = False,
     dagrun_timeout: timedelta | None = None,
     sla_miss_callback: None | SLAMissCallback | list[SLAMissCallback] = None,
     default_view: str = airflow_conf.get_mandatory_value("webserver", "dag_default_view").lower(),
@@ -3856,6 +3866,7 @@ def dag(
                 max_active_tasks=max_active_tasks,
                 max_active_runs=max_active_runs,
                 max_consecutive_failed_dag_runs=max_consecutive_failed_dag_runs,
+                max_active_tasks_include_deferred=max_active_tasks_include_deferred,
                 dagrun_timeout=dagrun_timeout,
                 sla_miss_callback=sla_miss_callback,
                 default_view=default_view,

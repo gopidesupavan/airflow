@@ -59,7 +59,6 @@ body:
         - discord
         - docker
         - elasticsearch
-        - essentials
         - exasol
         - fab
         - facebook
@@ -106,6 +105,7 @@ body:
         - snowflake
         - sqlite
         - ssh
+        - standard
         - tableau
         - tabular
         - telegram

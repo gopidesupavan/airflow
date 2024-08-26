@@ -29,7 +29,6 @@ from openlineage.client.utils import RedactMixin
 from pkg_resources import parse_version
 
 from airflow.models import DAG as AIRFLOW_DAG, DagModel
-from airflow.operators.bash import BashOperator
 from airflow.providers.openlineage.plugins.facets import AirflowDebugRunFacet
 from airflow.providers.openlineage.utils.utils import (
     InfoJsonEncodable,
@@ -41,6 +40,7 @@ from airflow.providers.openlineage.utils.utils import (
     get_fully_qualified_class_name,
     is_operator_disabled,
 )
+from airflow.providers.standard.core.operators.bash import BashOperator
 from airflow.utils import timezone
 from airflow.utils.log.secrets_masker import _secrets_masker
 from airflow.utils.state import State
@@ -295,7 +295,7 @@ def test_includes_full_task_info(mock_include_full_task_info):
 
 @patch("airflow.providers.openlineage.conf.include_full_task_info")
 def test_does_not_include_full_task_info(mock_include_full_task_info):
-    from airflow.operators.bash import BashOperator
+    from airflow.providers.standard.core.operators.bash import BashOperator
 
     mock_include_full_task_info.return_value = False
     # There should be no 'bash_command' in excludes and it's not in includes - so

@@ -55,9 +55,9 @@ from airflow.models.expandinput import EXPAND_INPUT_EMPTY
 from airflow.models.mappedoperator import MappedOperator
 from airflow.models.param import Param, ParamsDict
 from airflow.models.xcom import XCom
-from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
+from airflow.providers.standard.core.operators.bash import BashOperator
 from airflow.security import permissions
 from airflow.sensors.bash import BashSensor
 from airflow.serialization.dag_dependency import DagDependency

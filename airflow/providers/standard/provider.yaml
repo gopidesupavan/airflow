@@ -40,6 +40,7 @@ operators:
     python-modules:
       - airflow.providers.standard.time.operators.datetime
       - airflow.providers.standard.time.operators.weekday
+      - airflow.providers.standard.core.operators.bash
 
 sensors:
   - integration-name: Standard

@@ -22,7 +22,7 @@ import datetime
 import pendulum
 
 from airflow.models.dag import DAG
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.core.operators.bash import BashOperator
 from airflow.providers.standard.time.sensors.time_delta import TimeDeltaSensor, TimeDeltaSensorAsync
 from airflow.providers.standard.time.sensors.time_sensor import TimeSensor, TimeSensorAsync
 from airflow.providers.standard.time.sensors.weekday import DayOfWeekSensor

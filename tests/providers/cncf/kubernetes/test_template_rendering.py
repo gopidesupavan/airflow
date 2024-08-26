@@ -24,7 +24,7 @@ from sqlalchemy.orm import make_transient
 
 from airflow.configuration import TEST_DAGS_FOLDER
 from airflow.models.renderedtifields import RenderedTaskInstanceFields, RenderedTaskInstanceFields as RTIF
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.core.operators.bash import BashOperator
 from airflow.utils.session import create_session
 from airflow.version import version
 from tests.models import DEFAULT_DATE

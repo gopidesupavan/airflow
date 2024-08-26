@@ -29,7 +29,7 @@ from airflow.datasets import Dataset
 from airflow.datasets.metadata import Metadata
 from airflow.decorators import task
 from airflow.models.dag import DAG
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.core.operators.bash import BashOperator
 
 ds = Dataset("s3://output/1.txt")
 

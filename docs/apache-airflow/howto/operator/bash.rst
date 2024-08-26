@@ -22,7 +22,7 @@
 BashOperator
 ============
 
-Use the :class:`~airflow.operators.bash.BashOperator` to execute
+Use the :class:`~airflow.providers.standard.core.operators.bash.BashOperator` to execute
 commands in a `Bash <https://www.gnu.org/software/bash/>`__ shell. The Bash command or script to execute is
 determined by:
 

@@ -21,6 +21,8 @@ import asyncio
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
+from airflow.exceptions import AirflowException
+
 if TYPE_CHECKING:
     from airflow.providers.amazon.aws.hooks.base_aws import AwsGenericHook
 
@@ -30,7 +32,7 @@ from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 from airflow.triggers.base import BaseTrigger, TriggerEvent
 
 
-class GlueJobCompleteTrigger(BaseTrigger):
+class GlueJobCompleteTrigger(AwsBaseWaiterTrigger):
     """
     Watches for a glue job, triggers when it finishes.
 
@@ -45,16 +47,35 @@ class GlueJobCompleteTrigger(BaseTrigger):
         job_name: str,
         run_id: str,
         verbose: bool,
-        aws_conn_id: str | None,
         job_poll_interval: int | float,
+        aws_conn_id: str | None = "aws_default",
+        region_name: str | None = None,
+        verify: bool | str | None = None,
+        botocore_config: dict | None = None,
     ):
-        super().__init__()
         self.job_name = job_name
         self.run_id = run_id
         self.verbose = verbose
-        self.aws_conn_id = aws_conn_id
         self.job_poll_interval = job_poll_interval
 
+        self.aws_conn_id = aws_conn_id
+        self.region_name = region_name
+        self.verify = verify
+        self.botocore_config = botocore_config
+
+        super().__init__(
+            serialized_fields={"job_name": self.job_name, "run_id": self.run_id, "verbose": str(self.verbose), "job_poll_interval": self.job_poll_interval},
+            waiter_name="",
+            waiter_args={},
+            waiter_delay=None,
+            waiter_max_attempts=None,
+            aws_conn_id=self.aws_conn_id,
+            failure_message=[],
+            status_message=[],
+            status_queries=[],
+            return_key=None,
+            return_value=None
+        )
     def serialize(self) -> tuple[str, dict[str, Any]]:
         return (
             # dynamically generate the fully qualified name of the class
@@ -65,13 +86,28 @@ class GlueJobCompleteTrigger(BaseTrigger):
                 "verbose": str(self.verbose),
                 "aws_conn_id": self.aws_conn_id,
                 "job_poll_interval": self.job_poll_interval,
+                "region_name": self.region_name,
+                "verify": self.verify,
+                "botocore_config": self.botocore_config,
             },
         )
 
+    def hook(self) -> GlueJobHook:
+        return GlueJobHook(aws_conn_id=self.aws_conn_id,
+                           region_name=self.region_name,
+                           verify=self.verify,
+                           config=self.botocore_config,
+                           job_poll_interval=self.job_poll_interval)
+
     async def run(self) -> AsyncIterator[TriggerEvent]:
-        hook = GlueJobHook(aws_conn_id=self.aws_conn_id, job_poll_interval=self.job_poll_interval)
-        await hook.async_job_completion(self.job_name, self.run_id, self.verbose)
-        yield TriggerEvent({"status": "success", "message": "Job done", "value": self.run_id})
+        async with self.hook().async_conn as client:
+            try:
+                await client.async_job_completion(self.job_name, self.run_id, self.verbose)
+            except AirflowException as exception:
+                self.log.error("Error: %s running glue job: %s runId: %s", exception, self.job_name, self.run_id)
+                yield TriggerEvent({"status": "failed"})
+            else:
+                TriggerEvent({"status": "success", "message": "Job done", "value": self.run_id})
 
 
 class GlueCatalogPartitionTrigger(BaseTrigger):

@@ -35,6 +35,7 @@ cmd_result = run_command_via_breeze_shell(
         "DB_RESET": "true",
     },
 )
+
 if cmd_result.returncode != 0:
     console.print(
         "[warning]\nIf you see strange stacktraces above, "

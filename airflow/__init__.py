@@ -27,9 +27,11 @@ __path__ = __import__("pkgutil").extend_path(__path__, __name__)  # type: ignore
 
 __version__ = "3.0.0.dev0"
 
+import logging
 import os
 import sys
 import warnings
+from importlib.abc import MetaPathFinder
 from typing import TYPE_CHECKING
 
 if os.environ.get("_AIRFLOW_PATCH_GEVENT"):
@@ -67,6 +69,7 @@ __all__ = [
     "XComArg",
     # TODO: Remove this module in Airflow 3.2
     "Dataset",
+    "PythonOperator",
 ]
 
 # Perform side-effects unless someone has explicitly opted out before import
@@ -133,3 +136,40 @@ if not settings.LAZY_LOAD_PLUGINS:
     from airflow import plugins_manager
 
     plugins_manager.ensure_plugins_loaded()
+
+
+class ModuleRedirectSpec(MetaPathFinder):
+    def __init__(self, redirects: dict[str, str]):
+        self.redirects: dict[str, str] = redirects
+
+    def find_spec(self, old_module_ref: str, path, target=None):
+        import importlib
+
+        if old_module_ref in self.redirects:
+            new_module_name = self.redirects[old_module_ref]
+            warnings.warn(
+                f"Module '{old_module_ref}' is deprecatedPlease import it from '{new_module_name}'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return importlib.util.find_spec(new_module_name)
+        return None
+
+
+redirects_module_references = {
+    "airflow.operators.python": "airflow.providers.standard.operators.python",
+    "airflow.operators.bash": "airflow.providers.standard.operators.bash",
+    "airflow.operators.datetime": "airflow.providers.standard.operators.datetime",
+    "airflow.operators.weekday": "airflow.providers.standard.operators.weekday",
+    "airflow.sensors.bash": "airflow.providers.standard.sensors.bash",
+    "airflow.sensors.date_time": "airflow.providers.standard.sensors.date_time",
+    "airflow.sensors.python": "airflow.providers.standard.sensors.python",
+    "airflow.sensors.time": "airflow.providers.standard.sensors.time",
+    "airflow.sensors.time_delta": "airflow.providers.standard.sensors.time_delta",
+    "airflow.sensors.weekday": "airflow.providers.standard.sensors.weekday",
+    "airflow.hooks.filesystem": "airflow.providers.standard.hooks.filesystem",
+    "airflow.hooks.package_index": "airflow.providers.standard.hooks.package_index",
+    "airflow.hooks.subprocess": "airflow.providers.standard.hooks.subprocess",
+    "airflow.utils.python_virtualenv.py": "airflow.providers.standard.utils.python_virtualenv.py",
+}
+sys.meta_path.append(ModuleRedirectSpec(redirects_module_references))

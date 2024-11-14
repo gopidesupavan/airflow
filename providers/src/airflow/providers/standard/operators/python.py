@@ -35,7 +35,9 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, Callable, Collection, Iterable, Mapping, NamedTuple, Sequence, cast
 
 import lazy_object_proxy
+from packaging.version import Version
 
+from airflow import __version__ as airflow_version
 from airflow.exceptions import (
     AirflowConfigException,
     AirflowException,
@@ -48,7 +50,6 @@ from airflow.models.skipmixin import SkipMixin
 from airflow.models.taskinstance import _CURRENT_CONTEXT
 from airflow.models.variable import Variable
 from airflow.operators.branch import BranchMixIn
-from airflow.providers.standard import AIRFLOW_V_2_10_PLUS, AIRFLOW_V_3_0_PLUS
 from airflow.providers.standard.utils.python_virtualenv import prepare_virtualenv, write_python_script
 from airflow.settings import _ENABLE_AIP_44
 from airflow.typing_compat import Literal
@@ -60,6 +61,10 @@ from airflow.utils.process_utils import execute_in_subprocess, execute_in_subpro
 from airflow.utils.session import create_session
 
 log = logging.getLogger(__name__)
+
+AIRFLOW_VERSION = Version(airflow_version)
+AIRFLOW_V_2_10_PLUS = Version(AIRFLOW_VERSION.base_version) >= Version("2.10.0")
+AIRFLOW_V_3_0_PLUS = Version(AIRFLOW_VERSION.base_version) >= Version("3.0.0")
 
 if TYPE_CHECKING:
     from pendulum.datetime import DateTime

@@ -21,12 +21,17 @@ from datetime import timedelta
 from time import sleep
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from packaging.version import Version
+
+from airflow import __version__ as airflow_version
 from airflow.configuration import conf
 from airflow.exceptions import AirflowSkipException
-from airflow.providers.standard import AIRFLOW_V_3_0_PLUS
 from airflow.sensors.base import BaseSensorOperator
 from airflow.triggers.temporal import DateTimeTrigger, TimeDeltaTrigger
 from airflow.utils import timezone
+
+AIRFLOW_VERSION = Version(airflow_version)
+AIRFLOW_V_3_0_PLUS = Version(AIRFLOW_VERSION.base_version) >= Version("3.0.0")
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context

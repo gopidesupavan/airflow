@@ -21,8 +21,15 @@ import datetime
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, Sequence
 
-from airflow.providers.standard import AIRFLOW_V_3_0_PLUS
+from packaging.version import Version
+
+from airflow import __version__ as airflow_version
 from airflow.sensors.base import BaseSensorOperator
+from airflow.triggers.temporal import DateTimeTrigger
+from airflow.utils import timezone
+
+AIRFLOW_VERSION = Version(airflow_version)
+AIRFLOW_V_3_0_PLUS = Version(AIRFLOW_VERSION.base_version) >= Version("3.0.0")
 
 try:
     from airflow.triggers.base import StartTriggerArgs
@@ -38,9 +45,6 @@ except ImportError:
         next_kwargs: dict[str, Any] | None = None
         timeout: datetime.timedelta | None = None
 
-
-from airflow.triggers.temporal import DateTimeTrigger
-from airflow.utils import timezone
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context

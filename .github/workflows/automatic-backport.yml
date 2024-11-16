@@ -16,7 +16,7 @@
 # under the License.
 #
 ---
-name: Backport branch finder
+name: Automatic Backport
 on:  # yamllint disable-line rule:truthy
   push:
     branches:
@@ -25,7 +25,7 @@ on:  # yamllint disable-line rule:truthy
 jobs:
   get-pr-info:
     name: "Get PR information"
-    runs-on: ubuntu-latest
+    runs-on: ["ubuntu-22.04"]
     outputs:
       branches: ${{ steps.pr-info.outputs.branches }}
       commit-sha: ${{ github.sha }}

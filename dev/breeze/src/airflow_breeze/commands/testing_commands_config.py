@@ -205,7 +205,7 @@ TESTING_COMMANDS: list[dict[str, str | list[str]]] = [
     },
     {
         "name": "Other Tests",
-        "commands": ["system-tests", "helm-tests", "docker-compose-tests"],
+        "commands": ["system-tests", "helm-tests", "docker-compose-tests", "openapi-tests"],
     },
 ]
 
@@ -274,6 +274,18 @@ TESTING_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
     "breeze testing docker-compose-tests": [
         {
             "name": "Docker-compose tests flag",
+            "options": [
+                "--image-name",
+                "--image-tag",
+                "--python",
+                "--skip-docker-compose-deletion",
+                "--github-repository",
+            ],
+        }
+    ],
+    "breeze testing openapi-tests": [
+        {
+            "name": "OpenAPI tests flag",
             "options": [
                 "--image-name",
                 "--image-tag",

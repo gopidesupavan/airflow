@@ -382,6 +382,23 @@ function check_force_lowest_dependencies() {
     set +x
 }
 
+function check_airflow_client_installation() {
+    if [[ ${SKIP_CHECKING_AIRFLOW_CLIENT=} == "true" ]]; then
+        return
+    fi
+    if [[ ${USE_AIRFLOW_VERSION} == "" ]]; then
+        echo
+        echo "${COLOR_BLUE}Checking if airflow is installed in the container${COLOR_RESET}"
+        echo
+        if ! python -c "import airflow" 2>/dev/null; then
+            echo
+            echo "${COLOR_RED}Airflow is not installed in the container! Exiting.${COLOR_RESET}"
+            echo
+            exit 1
+        fi
+    fi
+}
+
 determine_airflow_to_use
 environment_initialization
 check_boto_upgrade

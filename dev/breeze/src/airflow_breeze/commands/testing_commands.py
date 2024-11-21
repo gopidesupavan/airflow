@@ -1021,6 +1021,86 @@ def helm_tests(
     fix_ownership_using_docker()
     sys.exit(result.returncode)
 
+@group_for_testing.command(
+    name="openapi-tests",
+    help="Run open api tests.",
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    ),
+)
+@option_backend
+@option_collect_only
+@option_db_reset
+@option_dry_run
+@option_enable_coverage
+@option_force_sa_warnings
+@option_forward_credentials
+@option_image_tag_for_running
+@option_keep_env_variables
+@option_mount_sources
+@option_mysql_version
+@option_no_db_cleanup
+@option_postgres_version
+@option_python
+@option_skip_docker_compose_down
+@option_test_timeout
+@option_verbose
+@click.argument("extra_pytest_args", nargs=-1, type=click.Path(path_type=str))
+def openapi_tests(
+    backend: str,
+    collect_only: bool,
+    db_reset: bool,
+    enable_coverage: bool,
+    extra_pytest_args: tuple,
+    force_sa_warnings: bool,
+    forward_credentials: bool,
+    image_tag: str | None,
+    keep_env_variables: bool,
+    mount_sources: str,
+    mysql_version: str,
+    no_db_cleanup: bool,
+    postgres_version: str,
+    python: str,
+    skip_docker_compose_down: bool,
+    test_timeout: int,
+):
+    print("open api tests")
+    shell_params = ShellParams(
+        test_group=GroupOfTests.SYSTEM,
+        backend=backend,
+        collect_only=collect_only,
+        enable_coverage=enable_coverage,
+        forward_credentials=forward_credentials,
+        forward_ports=False,
+        github_repository=github_repository,
+        image_tag=image_tag,
+        integration=(),
+        keep_env_variables=keep_env_variables,
+        mount_sources=mount_sources,
+        mysql_version=mysql_version,
+        no_db_cleanup=no_db_cleanup,
+        postgres_version=postgres_version,
+        python=python,
+        test_type="None",
+        force_sa_warnings=force_sa_warnings,
+        run_tests=True,
+        db_reset=db_reset,
+    )
+    fix_ownership_using_docker()
+    cleanup_python_generated_files()
+    perform_environment_checks()
+    returncode, _ = _run_test(
+        shell_params=shell_params,
+        extra_pytest_args=extra_pytest_args,
+        python_version=python,
+        output=None,
+        test_timeout=test_timeout,
+        output_outside_the_group=True,
+        skip_docker_compose_down=skip_docker_compose_down,
+    )
+    sys.exit(returncode)
+
 
 def _run_test_command(
     *,

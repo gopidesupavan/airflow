@@ -167,6 +167,7 @@ class ShellParams:
     github_token: str = os.environ.get("GITHUB_TOKEN", "")
     image_tag: str | None = None
     include_mypy_volume: bool = False
+    install_airflow_python_client: bool = False,
     install_airflow_version: str = ""
     install_airflow_with_constraints: bool = False
     install_selected_providers: str | None = None
@@ -562,6 +563,7 @@ class ShellParams:
         _set_var(_env, "HOST_OS", self.host_os)
         _set_var(_env, "HOST_USER_ID", self.host_user_id)
         _set_var(_env, "INIT_SCRIPT_FILE", None, "init.sh")
+        _set_var(_env, "INSTALL_AIRFLOW_PYTHON_CLIENT", self.install_airflow_python_client)
         _set_var(_env, "INSTALL_AIRFLOW_WITH_CONSTRAINTS", self.install_airflow_with_constraints)
         _set_var(_env, "INSTALL_AIRFLOW_VERSION", self.install_airflow_version)
         _set_var(_env, "INSTALL_SELECTED_PROVIDERS", self.install_selected_providers)

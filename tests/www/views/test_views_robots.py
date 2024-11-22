@@ -21,7 +21,9 @@ import pytest
 from tests_common.test_utils.config import conf_vars
 
 pytestmark = pytest.mark.db_test
-
+import airflow_client.client
+from airflow_client.client.api import config_api, dag_api, dag_run_api
+from airflow_client.client.model.dag_run import DAGRun
 
 def test_robots(viewer_client):
     resp = viewer_client.get("/robots.txt", follow_redirects=True)
@@ -38,3 +40,7 @@ def test_deployment_warning_config(admin_client):
         admin_client.get("/robots.txt", follow_redirects=True)
         resp = admin_client.get("/robots.txt", follow_redirects=True)
         assert warn_text not in resp.data.decode("utf-8")
+
+def test_python_client(admin_client):
+    dag_api_instance = dag_api.DAGApi(admin_client)
+    api_response = dag_api_instance.get_dags()

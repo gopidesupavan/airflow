@@ -40,6 +40,7 @@ from airflow_breeze.utils.virtualenv_utils import create_temp_venv
 
 DOCKER_TESTS_ROOT = AIRFLOW_SOURCES_ROOT / "docker_tests"
 DOCKER_TESTS_REQUIREMENTS = DOCKER_TESTS_ROOT / "requirements.txt"
+OPEN_API_TESTS_ROOT = AIRFLOW_SOURCES_ROOT / "clients/python"
 
 
 def verify_an_image(
@@ -104,6 +105,23 @@ def run_docker_compose_tests(
     return command_result.returncode, f"Testing docker-compose python with {image_name}"
 
 
+def run_open_api_tests(
+    image_name: str,
+    skip_docker_compose_deletion: bool,
+    extra_pytest_args: tuple[str, ...],
+) -> tuple[int, str]:
+    pytest_args = ("-n", str(os.cpu_count()), "--color=yes")
+    test_path = OPEN_API_TESTS_ROOT+"/"
+    with create_temp_venv(
+        pip_version=PIP_VERSION, uv_version=UV_VERSION
+    ) as py_exe:
+        command_result = run_command(
+            [py_exe, "-m", "pytest", str(test_path), *pytest_args, *extra_pytest_args],
+            check=False,
+        )
+    return command_result.returncode, "Testing OpenAPI client"
+
+
 def file_name_from_test_type(test_type: str):
     test_type_no_brackets = test_type.lower().replace("[", "_").replace("]", "")
     return re.sub("[,.]", "_", test_type_no_brackets)[:30]
@@ -162,6 +180,7 @@ TEST_TYPE_CORE_MAP_TO_PYTEST_ARGS: dict[str, list[str]] = {
     "WWW": [
         "tests/www",
     ],
+    "OpenAPI": ["clients/python"],
 }
 
 
@@ -172,6 +191,7 @@ TEST_GROUP_TO_TEST_FOLDER: dict[GroupOfTests, str] = {
     GroupOfTests.HELM: "helm_tests",
     GroupOfTests.INTEGRATION_CORE: "tests/integration",
     GroupOfTests.INTEGRATION_PROVIDERS: "providers/tests/integration",
+    GroupOfTests.OPEN_API: "tests/open_api",
 }
 
 
@@ -273,6 +293,9 @@ def convert_test_type_to_pytest_args(
         if not test_type.startswith(PROVIDERS_PREFIX):
             get_console().print(f"[error]Unknown test type for {GroupOfTests.PROVIDERS}: {test_type}[/]")
             sys.exit(1)
+        return [TEST_GROUP_TO_TEST_FOLDER[test_group]]
+
+    if test_group == GroupOfTests.OPEN_API:
         return [TEST_GROUP_TO_TEST_FOLDER[test_group]]
     if test_group != GroupOfTests.CORE:
         get_console().print(f"[error]Only {GroupOfTests.CORE} should be allowed here[/]")

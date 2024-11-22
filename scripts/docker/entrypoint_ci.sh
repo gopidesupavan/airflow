@@ -382,21 +382,11 @@ function check_force_lowest_dependencies() {
     set +x
 }
 
-function check_airflow_client_installation() {
-    if [[ ${SKIP_CHECKING_AIRFLOW_CLIENT=} == "true" ]]; then
+function check_airflow_python_client_installation() {
+    if [[ ${INSTALL_AIRFLOW_PYTHON_CLIENT=} != "true" ]]; then
         return
     fi
-    if [[ ${USE_AIRFLOW_VERSION} == "" ]]; then
-        echo
-        echo "${COLOR_BLUE}Checking if airflow is installed in the container${COLOR_RESET}"
-        echo
-        if ! python -c "import airflow" 2>/dev/null; then
-            echo
-            echo "${COLOR_RED}Airflow is not installed in the container! Exiting.${COLOR_RESET}"
-            echo
-            exit 1
-        fi
-    fi
+    python "${IN_CONTAINER_DIR}/install_airflow_python_client.py"
 }
 
 determine_airflow_to_use
@@ -405,6 +395,7 @@ check_boto_upgrade
 check_downgrade_sqlalchemy
 check_downgrade_pendulum
 check_force_lowest_dependencies
+check_airflow_python_client_installation
 check_run_tests "${@}"
 
 # If we are not running tests - just exec to bash shell

@@ -33,16 +33,32 @@ def find_airflow_python_client(extension: str):
     elif len(packages) == 0:
         console.print("\n[red]No airflow client package found\n")
         sys.exit(1)
-    airflow_package = packages[0] if packages else None
-    if airflow_package:
-        console.print(f"\n[bright_blue]Found airflow client package: {airflow_package}\n")
+    if packages:
+        console.print(f"\n[bright_blue]Found airflow client package: {packages[0]}\n")
     else:
         console.print("\n[yellow]No airflow client package found.\n")
-    return airflow_package
+    return packages[0]
 
-
-def install_airflow_python_client():
-    pass
+@click.command()
+@click.option(
+    "--github-actions",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    envvar="GITHUB_ACTIONS",
+    help="Running in GitHub Actions",
+)
+def install_airflow_python_client(github_actions: bool):
+    base_install_airflow_cmd = [
+        "/usr/local/bin/uv",
+        "pip",
+        "install",
+        "--python",
+        "/usr/local/bin/python",
+        find_airflow_python_client("whl")
+    ]
+    console.print("\n[bright_blue]Installing airflow python client\n")
+    run_command(base_install_airflow_cmd, github_actions=github_actions, check=True)
 
 
 

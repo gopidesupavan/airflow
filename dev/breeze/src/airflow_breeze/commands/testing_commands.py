@@ -1065,27 +1065,31 @@ def openapi_tests(
     skip_docker_compose_down: bool,
     test_timeout: int,
 ):
-    print("open api tests")
+    # return_code, info = run_open_api_tests(
+    #     image_name=image_name,
+    #     extra_pytest_args=extra_pytest_args,
+    #     skip_docker_compose_deletion=skip_docker_compose_deletion,
+    # )
+    # sys.exit(return_code)
     shell_params = ShellParams(
-        test_group=GroupOfTests.SYSTEM,
+        test_group=GroupOfTests.OPEN_API,
         backend=backend,
         collect_only=collect_only,
         enable_coverage=enable_coverage,
         forward_credentials=forward_credentials,
         forward_ports=False,
-        github_repository=github_repository,
         image_tag=image_tag,
-        integration=(),
         keep_env_variables=keep_env_variables,
         mount_sources=mount_sources,
         mysql_version=mysql_version,
         no_db_cleanup=no_db_cleanup,
         postgres_version=postgres_version,
         python=python,
-        test_type="None",
+        test_type="OpenAPI",
         force_sa_warnings=force_sa_warnings,
         run_tests=True,
         db_reset=db_reset,
+        install_airflow_python_client=True
     )
     fix_ownership_using_docker()
     cleanup_python_generated_files()

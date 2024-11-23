@@ -389,6 +389,36 @@ function check_airflow_python_client_installation() {
     python "${IN_CONTAINER_DIR}/install_airflow_python_client.py"
 }
 
+function start_airflow_minimal_webserver_with_examples(){
+    if [[ ${START_AIRFLOW_MINIMAL_WEBSERVER_WITH_EXAMPLES=} != "true" ]]; then
+        return
+    fi
+    export AIRFLOW__CORE__LOAD_EXAMPLES=True
+    echo
+    echo "${COLOR_BLUE}Initializing database${COLOR_RESET}"
+    echo
+    airflow db migrate
+    echo
+    echo "${COLOR_BLUE}Database initialized${COLOR_RESET}"
+    echo
+    echo "${COLOR_BLUE}Parsing example dags${COLOR_RESET}"
+    echo
+    airflow scheduler --num-runs 100
+    echo "Example dags parsing finished"
+    echo "Create admin user"
+    airflow users create -u admin -p admin -f Thor -l Adminstrator -r Admin -e admin@email.domain
+    echo "Admin user created"
+    echo
+    echo "${COLOR_BLUE}Starting airflow webserver${COLOR_RESET}"
+    echo
+    airflow webserver --port 8080 --daemon
+    echo
+    echo "${COLOR_BLUE}Waiting for the webserver to start${COLOR_RESET}"
+    sleep 60
+    echo
+    echo "${COLOR_BLUE}Webserver started${COLOR_RESET}"
+}
+
 determine_airflow_to_use
 environment_initialization
 check_boto_upgrade
@@ -396,6 +426,7 @@ check_downgrade_sqlalchemy
 check_downgrade_pendulum
 check_force_lowest_dependencies
 check_airflow_python_client_installation
+start_airflow_minimal_webserver_with_examples
 check_run_tests "${@}"
 
 # If we are not running tests - just exec to bash shell

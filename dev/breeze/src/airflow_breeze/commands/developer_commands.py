@@ -79,6 +79,7 @@ from airflow_breeze.commands.common_package_installation_options import (
     option_providers_constraints_reference,
     option_providers_skip_constraints,
     option_use_packages_from_dist,
+    option_install_airflow_python_client
 )
 from airflow_breeze.commands.main_command import main
 from airflow_breeze.commands.testing_commands import (
@@ -255,6 +256,7 @@ option_install_airflow_with_constraints_default_true = click.option(
     is_flag=True,
     envvar="VERBOSE_COMMANDS",
 )
+@option_install_airflow_python_client
 @option_airflow_constraints_location
 @option_airflow_constraints_mode_ci
 @option_airflow_constraints_reference
@@ -367,6 +369,7 @@ def shell(
     uv_http_timeout: int,
     verbose_commands: bool,
     warn_image_upgrade_needed: bool,
+    install_airflow_python_client
 ):
     """Enter breeze environment. this is the default command use when no other is selected."""
     if get_verbose() or get_dry_run() and not quiet:
@@ -434,6 +437,7 @@ def shell(
         uv_http_timeout=uv_http_timeout,
         verbose_commands=verbose_commands,
         warn_image_upgrade_needed=warn_image_upgrade_needed,
+        install_airflow_python_client=install_airflow_python_client
     )
     rebuild_or_pull_ci_image_if_needed(command_params=shell_params)
     result = enter_shell(shell_params=shell_params)

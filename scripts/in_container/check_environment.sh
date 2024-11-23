@@ -141,6 +141,31 @@ function startairflow_if_requested() {
     return $?
 }
 
+function start_airflow_minimal_webserver_with_examples(){
+    if [[ ${START_AIRFLOW_MINIMAL_WEBSERVER_WITH_EXAMPLES=} != "true" ]]; then
+        return
+    fi
+    export AIRFLOW__CORE__LOAD_EXAMPLES=True
+    echo
+    echo "${COLOR_BLUE}Initializing database${COLOR_RESET}"
+    echo
+    airflow db migrate
+    echo
+    echo "${COLOR_BLUE}Database initialized${COLOR_RESET}"
+    echo
+    echo "${COLOR_BLUE}Starting scheduler${COLOR_RESET}"
+    echo
+    airflow scheduler --num-runs 100
+    echo "Create admin user"
+    airflow users create -u admin -p admin -f Thor -l Adminstra -r Admin -e admin@email.domain
+    echo
+    echo "${COLOR_BLUE}Starting airflow webserver${COLOR_RESET}"
+    echo
+    airflow webserver --port 8080 --daemon
+    echo
+}
+
+
 echo
 echo "${COLOR_BLUE}Checking backend and integrations.${COLOR_RESET}"
 echo

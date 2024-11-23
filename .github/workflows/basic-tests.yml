@@ -220,6 +220,7 @@ jobs:
           airflow scheduler --num-runs 100
           airflow users create --username admin --password admin --firstname Admin --lastname Admin \
              --role Admin --email admin@example.org
+          airflow users create -u admin -p admin -f Thor -l Adminstra -r Admin -e admin@email.domain
           killall python || true  # just in case there is a webserver running in the background
           nohup airflow webserver --port 8080 &
           echo "Started webserver"

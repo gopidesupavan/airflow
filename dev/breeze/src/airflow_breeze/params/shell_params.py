@@ -205,6 +205,7 @@ class ShellParams:
     skip_ssh_setup: bool = os.environ.get("SKIP_SSH_SETUP", "false") == "true"
     standalone_dag_processor: bool = False
     start_airflow: bool = False
+    start_airflow_minimal_webserver_with_examples: bool = False
     test_type: str | None = None
     test_group: GroupOfTests | None = None
     tty: str = "auto"
@@ -597,6 +598,7 @@ class ShellParams:
         _set_var(_env, "SSH_PORT", None, SSH_PORT)
         _set_var(_env, "STANDALONE_DAG_PROCESSOR", self.standalone_dag_processor)
         _set_var(_env, "START_AIRFLOW", self.start_airflow)
+        _set_var(_env, "START_AIRFLOW_MINIMAL_WEBSERVER_WITH_EXAMPLES", self.start_airflow_minimal_webserver_with_examples)
         _set_var(_env, "SUSPENDED_PROVIDERS_FOLDERS", self.suspended_providers_folders)
         _set_var(_env, "SYSTEM_TESTS_ENV_ID", None, "")
         _set_var(_env, "TEST_TYPE", self.test_type, "")

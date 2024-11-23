@@ -28,10 +28,11 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import time
 import uuid
 
 import airflow_client.client
-
+import pytest
 try:
     # If you have rich installed, you will have nice colored output of the API responses
     from rich import print
@@ -64,12 +65,14 @@ configuration = airflow_client.client.Configuration(
 # or AIRFLOW__CORE__LOAD_EXAMPLES environment variable set to True
 DAG_ID = "example_bash_operator"
 
+@pytest.mark.execution_timeout(400)
 def test_python_client():
 # Enter a context with an instance of the API client
     # return_code = subprocess.run("airflow scheduler --num-runs 100")
     # return_code = subprocess.run("airflow users create --username admin --password admin --firstname Admin --lastname Admin \
     #          --role Admin --email admin@example.org")
     # return_code = subprocess.run("airflow webserver --port 8080 &")
+    # return_code = subprocess.run("airflow scheduler")
     with airflow_client.client.ApiClient(configuration) as api_client:
         errors = False
 

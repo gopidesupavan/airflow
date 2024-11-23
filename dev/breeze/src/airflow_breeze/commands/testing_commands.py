@@ -1036,11 +1036,10 @@ def helm_tests(
 @option_enable_coverage
 @option_force_sa_warnings
 @option_forward_credentials
+@option_github_repository
 @option_image_tag_for_running
 @option_keep_env_variables
-@option_mount_sources
 @option_mysql_version
-@option_no_db_cleanup
 @option_postgres_version
 @option_python
 @option_skip_docker_compose_down
@@ -1055,22 +1054,15 @@ def openapi_tests(
     extra_pytest_args: tuple,
     force_sa_warnings: bool,
     forward_credentials: bool,
+    github_repository: str,
     image_tag: str | None,
     keep_env_variables: bool,
-    mount_sources: str,
     mysql_version: str,
-    no_db_cleanup: bool,
     postgres_version: str,
     python: str,
     skip_docker_compose_down: bool,
     test_timeout: int,
 ):
-    # return_code, info = run_open_api_tests(
-    #     image_name=image_name,
-    #     extra_pytest_args=extra_pytest_args,
-    #     skip_docker_compose_deletion=skip_docker_compose_deletion,
-    # )
-    # sys.exit(return_code)
     shell_params = ShellParams(
         test_group=GroupOfTests.OPEN_API,
         backend=backend,
@@ -1078,19 +1070,21 @@ def openapi_tests(
         enable_coverage=enable_coverage,
         forward_credentials=forward_credentials,
         forward_ports=False,
+        github_repository=github_repository,
         image_tag=image_tag,
+        integration=(),
         keep_env_variables=keep_env_variables,
-        mount_sources=mount_sources,
         mysql_version=mysql_version,
-        no_db_cleanup=no_db_cleanup,
         postgres_version=postgres_version,
         python=python,
-        test_type="OpenAPI",
+        test_type="openapi",
         force_sa_warnings=force_sa_warnings,
         run_tests=True,
         db_reset=db_reset,
-        install_airflow_python_client=True
+        install_airflow_python_client=True,
+        start_airflow_minimal_webserver_with_examples=True,
     )
+    rebuild_or_pull_ci_image_if_needed(command_params=shell_params)
     fix_ownership_using_docker()
     cleanup_python_generated_files()
     perform_environment_checks()

@@ -191,7 +191,7 @@ TEST_GROUP_TO_TEST_FOLDER: dict[GroupOfTests, str] = {
     GroupOfTests.HELM: "helm_tests",
     GroupOfTests.INTEGRATION_CORE: "tests/integration",
     GroupOfTests.INTEGRATION_PROVIDERS: "providers/tests/integration",
-    GroupOfTests.OPEN_API: "tests/open_api",
+    GroupOfTests.OPEN_API: "clients/tests",
 }
 
 
@@ -372,11 +372,11 @@ def generate_args_for_pytest(
         args.append(f"--ignore-glob={TEST_GROUP_TO_TEST_FOLDER[GroupOfTests.INTEGRATION_CORE]}/*")
     if test_group != GroupOfTests.INTEGRATION_PROVIDERS:
         args.append(f"--ignore-glob={TEST_GROUP_TO_TEST_FOLDER[GroupOfTests.INTEGRATION_PROVIDERS]}/*")
-    if test_group != GroupOfTests.HELM:
+    if test_group not in [GroupOfTests.HELM, GroupOfTests.OPEN_API]:
         # do not produce warnings output for helm tests
         args.append(f"--warning-output-path={warnings_file}")
         args.append(f"--ignore={TEST_GROUP_TO_TEST_FOLDER[GroupOfTests.HELM]}")
-    if test_group not in [GroupOfTests.HELM, GroupOfTests.SYSTEM]:
+    if test_group not in [GroupOfTests.HELM, GroupOfTests.SYSTEM, GroupOfTests.OPEN_API]:
         args.append("--with-db-init")
     args.extend(get_suspended_provider_args())
     args.extend(get_excluded_provider_args(python_version))

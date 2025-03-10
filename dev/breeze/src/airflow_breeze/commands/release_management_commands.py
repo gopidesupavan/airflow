@@ -3629,3 +3629,74 @@ def generate_issue_content(
             progress.advance(task)
 
     print_issue_content(current, pull_requests, linked_issues, users, is_helm_chart)
+
+@release_management.command(name="publish-docs-to-s3", help="Publishes docs to S3.")
+@click.option(
+    "--source-dir-path",
+    help="Path to the directory with the generated documentation.",
+    required=True,
+)
+@click.option(
+    "--exclude-docs",
+    help="Comma separated list of directories to exclude from the documentation.",
+    default="",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Dry run - only print what would be done.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Overwrite existing files in the S3 bucket.",
+)
+@click.option(
+    "--destination-location",
+    help="Name of the S3 bucket to publish the documentation to.",
+    required=True,
+)
+@option_parallelism
+def publish_docs_to_s3(
+    source_dir_path: str,
+    exclude_docs: str,
+    dry_run: bool,
+    overwrite: bool,
+    destination_location: str,
+    parallelism: int,
+):
+    from airflow_breeze.utils.publish_docs_to_s3 import S3DocsPublish
+
+    docs_to_s3 = S3DocsPublish(
+        source_dir_path=source_dir_path,
+        exclude_docs=exclude_docs,
+        dry_run=dry_run,
+        overwrite=overwrite,
+        destination_location=destination_location,
+    )
+    docs_to_s3.publish_docs_to_s3()
+
+    all_params = [f"Publish docs from {source} to {destination}" for source, destination in
+                  docs_to_s3.source_dest_mapping]
+
+    with run_with_pool(
+        parallelism=parallelism,
+        all_params=all_params,
+    ) as (pool, outputs):
+        results = [
+            pool.apply_async(
+                docs_to_s3.sync_docs_to_s3,
+                kwds={
+                    "source": source,
+                    "destination": destination,
+                },
+            )
+            for source, destination in docs_to_s3.source_dest_mapping
+        ]
+
+    check_async_run_results(
+        results=results,
+        success="All docs copied successfully",
+        outputs=outputs,
+        include_success_outputs=False,
+    )

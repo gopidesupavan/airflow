@@ -404,4 +404,16 @@ RELEASE_MANAGEMENT_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
             ],
         },
     ],
+    "breeze release-management publish-docs-to-s3": [
+        {
+            "name": "Publish docs to S3",
+            "options": [
+                "--source-dir-path",
+                "--exclude-docs",
+                "--dry-run",
+                "--overwrite",
+                "--destination-location",
+            ],
+        }
+    ]
 }

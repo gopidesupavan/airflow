@@ -3630,6 +3630,7 @@ def generate_issue_content(
 
     print_issue_content(current, pull_requests, linked_issues, users, is_helm_chart)
 
+
 @release_management.command(name="publish-docs-to-s3", help="Publishes docs to S3.")
 @click.option(
     "--source-dir-path",
@@ -3676,8 +3677,10 @@ def publish_docs_to_s3(
     )
     docs_to_s3.publish_docs_to_s3()
 
-    all_params = [f"Publish docs from {source} to {destination}" for source, destination in
-                  docs_to_s3.source_dest_mapping]
+    all_params = [
+        f"Publish docs from {source} to {destination}"
+        for source, destination in docs_to_s3.source_dest_mapping
+    ]
 
     with run_with_pool(
         parallelism=parallelism,
@@ -3696,7 +3699,7 @@ def publish_docs_to_s3(
 
     check_async_run_results(
         results=results,
-        success="All docs copied successfully",
+        success="All docs published successfully",
         outputs=outputs,
         include_success_outputs=False,
     )

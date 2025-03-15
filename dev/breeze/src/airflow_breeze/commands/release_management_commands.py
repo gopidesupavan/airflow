@@ -3697,16 +3697,15 @@ def publish_docs_to_s3(
     get_console().print(f"[info]Your parallelism is {parallelism}[/]")
     get_console().print(f"[info]Your publish all is {publish_all}[/]")
     get_console().print(f"[info]Your stable versions is {stable_versions}[/]")
-
-    docs_to_s3 = S3DocsPublish(
-        source_dir_path=source_dir_path,
-        exclude_docs=exclude_docs,
-        dry_run=dry_run,
-        overwrite=overwrite,
-        destination_location=destination_location,
-        parallelism=parallelism,
-    )
-    if publish_all:
-        docs_to_s3.publish_all_docs()
-    if stable_versions:
-        docs_to_s3.publish_stable_version_docs()
+    # docs_to_s3 = S3DocsPublish(
+    #     source_dir_path=source_dir_path,
+    #     exclude_docs=exclude_docs,
+    #     dry_run=dry_run,
+    #     overwrite=overwrite,
+    #     destination_location=destination_location,
+    #     parallelism=parallelism,
+    # )
+    # if publish_all:
+    #     docs_to_s3.publish_all_docs()
+    # if stable_versions:
+    #     docs_to_s3.publish_stable_version_docs()

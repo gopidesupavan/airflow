@@ -3657,16 +3657,46 @@ def generate_issue_content(
     help="Name of the S3 bucket to publish the documentation to.",
     required=True,
 )
+@click.option(
+    "--publish-all",
+    is_flag = True,
+    help="Publish all the available docs in the source directory."
+)
+@click.option(
+    "--stable-versions",
+    is_flag = True,
+    help="Publish all the stable versions of the docs in the source directory."
+)
 @option_parallelism
 def publish_docs_to_s3(
     source_dir_path: str,
+    destination_location: str,
     exclude_docs: str,
     dry_run: bool,
     overwrite: bool,
-    destination_location: str,
     parallelism: int,
+    publish_all: bool,
+    stable_versions: bool,
 ):
     from airflow_breeze.utils.publish_docs_to_s3 import S3DocsPublish
+
+    if publish_all and stable_versions:
+        get_console().print("[error]You cannot use --publish-all and --stable-versions together[/]")
+        sys.exit(1)
+
+
+    destination_location = destination_location.rstrip("/")
+    source_dir_path = source_dir_path.rstrip("/")
+
+    get_console().print("[info]Your publishing docs to S3[/]")
+    get_console().print(f"[info]Your source directory path is {source_dir_path}[/]")
+    get_console().print(f"[info]Your destination path to docs is {destination_location}[/]")
+    get_console().print(f"[info]Your excluded docs are {exclude_docs}[/]")
+    get_console().print(f"[info]Your dry run is {dry_run}[/]")
+    get_console().print(f"[info]Your overwrite is {overwrite}[/]")
+    get_console().print(f"[info]Your parallelism is {parallelism}[/]")
+    get_console().print(f"[info]Your publish all is {publish_all}[/]")
+    get_console().print(f"[info]Your stable versions is {stable_versions}[/]")
 
     docs_to_s3 = S3DocsPublish(
         source_dir_path=source_dir_path,
@@ -3674,32 +3704,9 @@ def publish_docs_to_s3(
         dry_run=dry_run,
         overwrite=overwrite,
         destination_location=destination_location,
-    )
-    docs_to_s3.publish_docs_to_s3()
-
-    all_params = [
-        f"Publish docs from {source} to {destination}"
-        for source, destination in docs_to_s3.source_dest_mapping
-    ]
-
-    with run_with_pool(
         parallelism=parallelism,
-        all_params=all_params,
-    ) as (pool, outputs):
-        results = [
-            pool.apply_async(
-                docs_to_s3.sync_docs_to_s3,
-                kwds={
-                    "source": source,
-                    "destination": destination,
-                },
-            )
-            for source, destination in docs_to_s3.source_dest_mapping
-        ]
-
-    check_async_run_results(
-        results=results,
-        success="All docs published successfully",
-        outputs=outputs,
-        include_success_outputs=False,
     )
+    if publish_all:
+        docs_to_s3.publish_all_docs()
+    if stable_versions:
+        docs_to_s3.publish_stable_version_docs()

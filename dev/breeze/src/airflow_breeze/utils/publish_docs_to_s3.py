@@ -18,13 +18,18 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from functools import cached_property
 
 import boto3
 
+from airflow_breeze.utils.parallel import run_with_pool
+
+from airflow_breeze.utils.parallel import check_async_run_results
+
 PROVIDER_NAME_FORMAT = "apache-airflow-providers-{}"
 
-NON_VERSIONED_PACKAGES = ["apache-airflow-providers", "docker-stack", "helm-chart", "apache-airflow"]
+NON_SHORT_NAME_PACKAGES = ["docker-stack", "helm-chart", "apache-airflow"]
 from airflow_breeze.utils.console import get_console
 
 s3_client = boto3.client("s3")
@@ -38,6 +43,7 @@ class S3DocsPublish:
         exclude_docs: str,
         dry_run: bool = False,
         overwrite: bool = False,
+        parallelism: int = 1,
     ):
         self.source_dir_path = source_dir_path
         self.destination_location = destination_location
@@ -46,11 +52,17 @@ class S3DocsPublish:
         self.overwrite = overwrite
         self.errors = []
         self.source_dest_mapping = []
+        self.parallelism = parallelism
 
     @cached_property
     def get_all_docs(self):
         get_console().print(f"[info]Getting all docs from {self.source_dir_path}\n")
-        return os.listdir(self.source_dir_path)
+        try:
+            all_docs = os.listdir(self.source_dir_path)
+        except FileNotFoundError:
+            get_console().print(f"[error]No docs found in {self.source_dir_path}\n")
+            sys.exit(1)
+        return all_docs
 
     @cached_property
     def get_all_excluded_docs(self):
@@ -60,21 +72,30 @@ class S3DocsPublish:
 
     @cached_property
     def get_all_eligible_docs(self):
+        """
+        It excludes the docs that are in the exclude list
+        """
         non_eligible_docs = []
 
-        for doc in self.get_all_docs:
-            for excluded_doc in self.get_all_excluded_docs:
-                if excluded_doc in NON_VERSIONED_PACKAGES:
-                    non_eligible_docs.append(doc)
-                    continue
+        for excluded_doc in self.get_all_excluded_docs:
+            if excluded_doc in NON_SHORT_NAME_PACKAGES:
+                non_eligible_docs.append(excluded_doc)
+                continue
 
+            for doc in self.get_all_docs:
                 excluded_provider_name = PROVIDER_NAME_FORMAT.format(excluded_doc.replace(".", "-"))
                 if doc == excluded_provider_name:
                     non_eligible_docs.append(doc)
+                    continue
 
-        return list(set(self.get_all_docs) - set(non_eligible_docs))
+        docs_to_process = list(set(self.get_all_docs) - set(non_eligible_docs))
+        if not docs_to_process:
+            get_console().print(f"[error]No eligible docs found, all docs are excluded\n")
+            sys.exit(1)
 
-    def is_doc_version_exists(self, s3_bucket_doc_location: str) -> bool:
+        return docs_to_process
+
+    def is_doc_exists(self, s3_bucket_doc_location: str) -> bool:
         parts = s3_bucket_doc_location[5:].split("/", 1)
         bucket = parts[0]
         key = parts[1]
@@ -83,29 +104,40 @@ class S3DocsPublish:
         return response["KeyCount"] > 0
 
     def sync_docs_to_s3(self, source: str, destination: str):
-        get_console().print(f"[info]Syncing {source} to {destination}\n")
 
         if self.dry_run:
-            get_console().print("Dry run enabled. Skipping sync.")
+            get_console().print(f"Dry run enabled, skipping sync operation {source} to {destination}")
             return (0, "")
         else:
+            get_console().print(f"[info]Syncing {source} to {destination}\n")
             # result = subprocess.run(["aws", "s3", "sync", "--delete", source, destination ], capture_output=True, text=True)
             result = subprocess.run(["aws", "s3", "ls"], capture_output=True, text=True)
             return (result.returncode, result.stderr)
 
-    def publish_docs_to_s3(self):
+    def publish_stable_version_docs(self):
+        """
+        Publish stable version docs to S3 meaning, the source dir should have a stable.txt file and it
+        publishes to two locations: one with the version folder and another with stable folder
+        ex:
+        docs/apache-airflow-providers-apache-cassandra/1.0.0
+        docs/apache-airflow-providers-apache-cassandra/stable
+        """
+        print(self.get_all_eligible_docs)
         for doc in self.get_all_eligible_docs:
+            print(f"Processing {doc}")
             stable_file_path = f"{self.source_dir_path}/{doc}/stable.txt"
             if os.path.exists(stable_file_path):
                 with open(stable_file_path) as stable_file:
                     stable_version = stable_file.read()
                     get_console().print(f"[info]Stable version: {stable_version} for {doc}\n")
             else:
-                get_console().print(f"[info]Stable version file not found for {doc}\n")
-                self.errors.append(f"Stable version file not found for {doc} in {stable_file_path}")
+                get_console().print(f"[info]Skipping, stable version file not found for {doc} in {stable_file_path}\n")
                 continue
 
-            if self.is_doc_version_exists(f"{self.destination_location}{doc}/{stable_version}"):
+            dest_doc_versioned_folder = f"{self.destination_location}/{doc}/{stable_version}/"
+            dest_doc_stable_folder = f"{self.destination_location}/{doc}/stable/"
+
+            if self.is_doc_exists(dest_doc_versioned_folder):
                 if self.overwrite:
                     get_console().print(f"[info]Overwriting existing version {stable_version} for {doc}\n")
                 else:
@@ -114,10 +146,56 @@ class S3DocsPublish:
                     )
                     continue
 
-            current_doc_dest_versioned_folder = f"{self.destination_location}{doc}/{stable_version}"
-            current_doc_dest_stable_folder = f"{self.destination_location}{doc}/stable"
+            source_dir_doc_path = f"{self.source_dir_path}/{doc}/{stable_version}/"
 
-            self.source_dest_mapping.append(
-                (f"{self.source_dir_path}/{doc}", current_doc_dest_versioned_folder)
-            )
-            self.source_dest_mapping.append((f"{self.source_dir_path}/{doc}", current_doc_dest_stable_folder))
+            self.source_dest_mapping.append((source_dir_doc_path, dest_doc_versioned_folder))
+            self.source_dest_mapping.append((source_dir_doc_path, dest_doc_stable_folder))
+
+        if self.source_dest_mapping:
+            self.run_publish()
+
+    def publish_all_docs(self):
+        for doc in self.get_all_eligible_docs:
+            dest_doc_folder = f"{self.destination_location}/{doc}/"
+            if self.is_doc_exists(dest_doc_folder):
+                if self.overwrite:
+                    get_console().print(f"[info]Overwriting existing {dest_doc_folder}\n")
+                else:
+                    get_console().print(
+                        f"[info]Skipping doc publish for {dest_doc_folder} as already exists\n"
+                    )
+                    continue
+
+            source_dir_doc_path = f"{self.source_dir_path}/{doc}/"
+            self.source_dest_mapping.append((source_dir_doc_path, dest_doc_folder))
+
+        if self.source_dest_mapping:
+            self.run_publish()
+
+    def run_publish(self):
+        all_params = [
+            f"Publish docs from {source} to {destination}"
+            for source, destination in self.source_dest_mapping
+        ]
+
+        with run_with_pool(
+            parallelism=self.parallelism,
+            all_params=all_params,
+        ) as (pool, outputs):
+            results = [
+                pool.apply_async(
+                    self.sync_docs_to_s3,
+                    kwds={
+                        "source": source,
+                        "destination": destination,
+                    },
+                )
+                for source, destination in self.source_dest_mapping
+            ]
+
+        check_async_run_results(
+            results=results,
+            success="All docs published successfully",
+            outputs=outputs,
+            include_success_outputs=False,
+        )

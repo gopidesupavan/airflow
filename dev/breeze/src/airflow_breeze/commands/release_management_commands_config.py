@@ -413,6 +413,9 @@ RELEASE_MANAGEMENT_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
                 "--dry-run",
                 "--overwrite",
                 "--destination-location",
+                "--parallelism",
+                "--stable-versions"
+                "--publish-all",
             ],
         }
     ],

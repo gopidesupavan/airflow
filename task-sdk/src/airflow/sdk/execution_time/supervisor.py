@@ -66,6 +66,7 @@ from airflow.sdk.execution_time.comms import (
     AssetResult,
     ConnectionResult,
     DagRunStateResult,
+    DagCountResult,
     DeferTask,
     DeleteXCom,
     GetAssetByName,
@@ -74,6 +75,7 @@ from airflow.sdk.execution_time.comms import (
     GetAssetEventByAssetAlias,
     GetConnection,
     GetDagRunState,
+    GetDagCountByRunIdsAndStates,
     GetPrevSuccessfulDagRun,
     GetVariable,
     GetXCom,
@@ -962,6 +964,9 @@ class ActivitySubprocess(WatchedSubprocess):
         elif isinstance(msg, GetDagRunState):
             dr_resp = self.client.dag_runs.get_state(msg.dag_id, msg.run_id)
             resp = DagRunStateResult.from_api_response(dr_resp).model_dump_json().encode()
+        elif isinstance(msg, GetDagCountByRunIdsAndStates):
+            dr_resp = self.client.dag_runs.get_dag_count_by_run_ids_and_states(msg.dag_id, msg.run_ids, msg.states)
+            resp = DagCountResult.from_api_response(dr_resp).model_dump_json().encode()
         else:
             log.error("Unhandled request", msg=msg)
             return

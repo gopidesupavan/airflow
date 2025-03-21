@@ -18,18 +18,20 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated, List
 
-from fastapi import HTTPException, status
-from sqlalchemy import select
+from fastapi import HTTPException, status, Query
+from sqlalchemy import select, func
 
 from airflow.api.common.trigger_dag import trigger_dag
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.router import AirflowRouter
-from airflow.api_fastapi.execution_api.datamodels.dagrun import DagRunStateResponse, TriggerDAGRunPayload
+from airflow.api_fastapi.execution_api.datamodels.dagrun import DagRunStateResponse, TriggerDAGRunPayload, DagCountResponse
 from airflow.exceptions import DagRunAlreadyExists
 from airflow.models.dag import DagModel
 from airflow.models.dagbag import DagBag
 from airflow.models.dagrun import DagRun
+from airflow.utils.state import DagRunState
 from airflow.utils.types import DagRunTriggeredByType
 
 router = AirflowRouter()
@@ -150,3 +152,30 @@ def get_dagrun_state(
         )
 
     return DagRunStateResponse(state=dag_run.state)
+
+
+@router.get(
+    "/{dag_id}/count-by-run-ids-and-states",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "DAG not found for the given dag_id"},
+    },
+)
+def get_dag_count_by_run_ids_and_states(
+    dag_id: str,
+    run_ids: Annotated[List[str], Query(description="List of run IDs")],
+    states: Annotated[List[str], Query(description="List of states")],
+    session: SessionDep,
+) -> DagCountResponse:
+    """Get the count of DAGs by run_id and state."""
+
+    result = session.scalars(
+        select(DagRun).where(
+            DagRun.dag_id == dag_id,
+            DagRun.run_id.in_(run_ids),
+            DagRun.state.in_(states)
+        )
+    ).all()
+    return DagCountResponse(count=len(result))
+
+
+

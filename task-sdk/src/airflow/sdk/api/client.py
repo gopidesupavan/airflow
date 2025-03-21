@@ -32,6 +32,7 @@ from retryhttp import retry, wait_retry_after
 from tenacity import before_log, wait_random_exponential
 from uuid6 import uuid7
 
+from airflow.api_fastapi.execution_api.datamodels.dagrun import DagCountResponse
 from airflow.api_fastapi.execution_api.datamodels.taskinstance import TIRuntimeCheckPayload
 from airflow.sdk import __version__
 from airflow.sdk.api.datamodels._generated import (
@@ -40,6 +41,7 @@ from airflow.sdk.api.datamodels._generated import (
     AssetResponse,
     ConnectionResponse,
     DagRunStateResponse,
+    DagCountResponse,
     DagRunType,
     PrevSuccessfulDagRunResponse,
     TerminalStateNonSuccess,
@@ -452,6 +454,11 @@ class DagRunOperations:
         """Get the state of a DAG run via the API server."""
         resp = self.client.get(f"dag-runs/{dag_id}/{run_id}/state")
         return DagRunStateResponse.model_validate_json(resp.read())
+
+    def get_dag_count_by_run_ids_and_states(self, dag_id: str, run_ids: list[str], states: list[str]) -> DagCountResponse:
+        """Get the count of dag runs by run ids and states via the API server."""
+        resp = self.client.get(f"dag-runs/{dag_id}/count-by-run-ids-and-states", params={"run_ids": run_ids, "states": states})
+        return DagCountResponse.model_validate_json(resp.read())
 
 
 class BearerAuth(httpx.Auth):

@@ -220,18 +220,43 @@ class TriggerDagRunOperator(BaseOperator):
     def _trigger_dag_af_3(self, context, run_id, parsed_logical_date):
         from airflow.exceptions import DagRunTriggerException
 
-        raise DagRunTriggerException(
-            trigger_dag_id=self.trigger_dag_id,
-            dag_run_id=run_id,
-            conf=self.conf,
-            logical_date=parsed_logical_date,
-            reset_dag_run=self.reset_dag_run,
-            skip_when_already_exists=self.skip_when_already_exists,
-            wait_for_completion=self.wait_for_completion,
-            allowed_states=self.allowed_states,
-            failed_states=self.failed_states,
-            poke_interval=self.poke_interval,
-        )
+        if not self._defer:
+            raise DagRunTriggerException(
+                trigger_dag_id=self.trigger_dag_id,
+                dag_run_id=run_id,
+                conf=self.conf,
+                logical_date=parsed_logical_date,
+                reset_dag_run=self.reset_dag_run,
+                skip_when_already_exists=self.skip_when_already_exists,
+                wait_for_completion=self.wait_for_completion,
+                allowed_states=self.allowed_states,
+                failed_states=self.failed_states,
+                poke_interval=self.poke_interval,
+            )
+        else:
+            import structlog
+            from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
+            from airflow.sdk.execution_time.comms import TriggerDagRun
+            log = structlog.get_logger(logger_name="task")
+            SUPERVISOR_COMMS.send_request(
+                log=log, msg=TriggerDagRun(dag_id=self.dag_id,
+                                           run_id=run_id,
+                                           conf=self.conf,
+                                           logical_date=parsed_logical_date,
+                                           reset_dag_run=self.reset_dag_run,
+                                          )
+            )
+            msg = SUPERVISOR_COMMS.get_message()
+            print(msg)
+            self.defer(
+                trigger=DagStateTrigger(
+                    dag_id=self.trigger_dag_id,
+                    states=self.allowed_states + self.failed_states,
+                    run_ids=[run_id],
+                    poll_interval=self.poke_interval,
+                ),
+                method_name="execute_complete",
+            )
 
         # TODO: Support deferral
 

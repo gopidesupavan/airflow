@@ -113,7 +113,6 @@ def _convert_variable_result_to_variable(var_result: VariableResult, deserialize
 
 def _get_connection(conn_id: str) -> Connection:
     from airflow.sdk.execution_time.supervisor import SECRETS_BACKEND
-
     # TODO: check cache first
     # enabled only if SecretCache.init() has been called first
 

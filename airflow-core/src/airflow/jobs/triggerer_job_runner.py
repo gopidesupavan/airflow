@@ -49,7 +49,7 @@ from airflow.sdk.execution_time.comms import (
     GetVariable,
     GetXCom,
     VariableResult,
-    XComResult,
+    XComResult, GetDagCountByRunIdsAndStates, DagRunStateCountResult,
 )
 from airflow.sdk.execution_time.supervisor import WatchedSubprocess, make_buffered_socket_reader
 from airflow.stats import Stats
@@ -213,6 +213,7 @@ ToTriggerRunner = Annotated[
         VariableResult,
         XComResult,
         ErrorResponse,
+        DagRunStateCountResult
     ],
     Field(discriminator="type"),
 ]
@@ -223,7 +224,7 @@ code).
 
 
 ToTriggerSupervisor = Annotated[
-    Union[messages.TriggerStateChanges, GetConnection, GetVariable, GetXCom],
+    Union[messages.TriggerStateChanges, GetConnection, GetVariable, GetXCom, GetDagCountByRunIdsAndStates],
     Field(discriminator="type"),
 ]
 """
@@ -364,6 +365,10 @@ class TriggerRunnerSupervisor(WatchedSubprocess):
                 resp = var_result.model_dump_json(exclude_unset=True).encode()
             else:
                 resp = var.model_dump_json().encode()
+        elif isinstance(msg, GetDagCountByRunIdsAndStates):
+            dr_resp = self.client.dag_runs.get_dag_count_by_run_ids_and_states(msg.dag_id, msg.run_ids,
+                                                                               msg.states)
+            resp = DagRunStateCountResult.from_api_response(dr_resp).model_dump_json().encode()
         else:
             raise ValueError(f"Unknown message type {type(msg)}")
 

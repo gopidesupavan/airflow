@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         ConnectionResult,
         PrevSuccessfulDagRunResponse,
         VariableResult,
-    )
+)
     from airflow.sdk.types import OutletEventAccessorsProtocol
 
 
@@ -153,6 +153,19 @@ def _get_connection(conn_id: str) -> Connection:
     if TYPE_CHECKING:
         assert isinstance(msg, ConnectionResult)
     return _convert_connection_result_conn(msg)
+
+def get_dag_run_count_by_state(dag_id: str, states: list[str], runids: list[str]) -> int:
+    from airflow.sdk.execution_time.comms import GetDagCountByRunIdsAndStates
+
+    from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
+    with SUPERVISOR_COMMS.lock:
+        SUPERVISOR_COMMS.send_request(log=log, msg=GetDagCountByRunIdsAndStates(
+            dag_id=dag_id, run_ids=runids,
+            states=states
+        ))
+        msg = SUPERVISOR_COMMS.get_message()
+
+        return msg
 
 
 def _get_variable(key: str, deserialize_json: bool) -> Variable:

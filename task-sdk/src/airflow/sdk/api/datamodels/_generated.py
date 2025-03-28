@@ -118,6 +118,12 @@ class DagRunStateResponse(BaseModel):
 
     state: DagRunState
 
+class DagRunStateCountResponse(BaseModel):
+    """
+    Schema for DAG Run State response.
+    """
+
+    count: Annotated[int, Field(title="Count")]
 
 class DagRunType(str, Enum):
     """

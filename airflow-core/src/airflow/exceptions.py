@@ -440,6 +440,7 @@ class DagRunTriggerException(AirflowException):
         allowed_states: list[str | DagRunState],
         failed_states: list[str | DagRunState],
         poke_interval: int,
+        deferrable: bool,
     ):
         super().__init__()
         self.trigger_dag_id = trigger_dag_id
@@ -452,6 +453,7 @@ class DagRunTriggerException(AirflowException):
         self.allowed_states = allowed_states
         self.failed_states = failed_states
         self.poke_interval = poke_interval
+        self.deferrable = deferrable
 
 
 class TaskDeferred(BaseException):

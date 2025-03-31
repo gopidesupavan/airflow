@@ -584,3 +584,17 @@ def context_get_outlet_events(context: Context) -> OutletEventAccessorsProtocol:
     except KeyError:
         outlet_events = context["outlet_events"] = OutletEventAccessors()
     return outlet_events
+
+def _get_dag_run_count_by_run_ids_and_states(dag_id: str, states: list[str], run_ids: list[str]) -> int:
+    from airflow.sdk.execution_time.comms import GetDagRunCountByRunIdsAndStates
+
+    from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
+    with SUPERVISOR_COMMS.lock:
+        SUPERVISOR_COMMS.send_request(log=log, msg=GetDagRunCountByRunIdsAndStates(
+            dag_id=dag_id,
+            states=states,
+            run_ids=run_ids,
+        ))
+        msg = SUPERVISOR_COMMS.get_message()
+
+        return msg

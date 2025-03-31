@@ -231,6 +231,7 @@ class TriggerDagRunOperator(BaseOperator):
             allowed_states=self.allowed_states,
             failed_states=self.failed_states,
             poke_interval=self.poke_interval,
+            deferrable=self._defer,
         )
 
         # TODO: Support deferral

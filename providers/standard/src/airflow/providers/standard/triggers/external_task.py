@@ -180,12 +180,24 @@ class DagStateTrigger(BaseTrigger):
         return "airflow.providers.standard.triggers.external_task.DagStateTrigger", data
 
     async def run(self) -> typing.AsyncIterator[TriggerEvent]:
+        from airflow.sdk.execution_time.context import _get_dag_run_count_by_run_ids_and_states
         """Check periodically if the dag run exists, and has hit one of the states yet, or not."""
+        run_count = len(self.run_ids) if AIRFLOW_V_3_0_PLUS else len(self.execution_dates)
         while True:
             # mypy confuses typing here
-            num_dags = await self.count_dags()  # type: ignore[call-arg]
-            _dates = self.run_ids if AIRFLOW_V_3_0_PLUS else self.execution_dates
-            if num_dags == len(_dates):  # type: ignore[arg-type]
+            if AIRFLOW_V_3_0_PLUS:
+                dag_count_response = _get_dag_run_count_by_run_ids_and_states(
+                    dag_id=self.dag_id,
+                    run_ids=self.run_ids,
+                   states= self.states,
+                )
+                print("Number of running dags")
+                print(dag_count_response)
+                num_dags = int(dag_count_response.count)
+                print("Number of running dags,", num_dags)
+            else:
+                num_dags = await self.count_dags()  # type: ignore[call-arg]
+            if num_dags == run_count:  # type: ignore[arg-type]
                 yield TriggerEvent(self.serialize())
                 return
             await asyncio.sleep(self.poll_interval)

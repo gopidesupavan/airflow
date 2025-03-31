@@ -612,7 +612,6 @@ def _prepare(ti: RuntimeTaskInstance, log: Logger, context: Context) -> ToSuperv
     # No error, carry on and execute the task
     return None
 
-
 def run(
     ti: RuntimeTaskInstance,
     context: Context,
@@ -673,6 +672,7 @@ def run(
     except DagRunTriggerException as drte:
         msg, state = _handle_trigger_dag_run(drte, context, ti, log)
     except TaskDeferred as defer:
+        print("Inside TaskDeferred")
         # TODO: Should we use structlog.bind_contextvars here for dag_id, task_id & run_id?
         log.info("Pausing task as DEFERRED. ", dag_id=ti.dag_id, task_id=ti.task_id, run_id=ti.run_id)
         classpath, trigger_kwargs = defer.trigger.serialize()
@@ -804,7 +804,44 @@ def _handle_trigger_dag_run(
     # be used when creating the extra link on the webserver.
     ti.xcom_push(key="trigger_run_id", value=drte.dag_run_id)
 
-    if drte.wait_for_completion:
+    if drte.deferrable:
+        from airflow.exceptions import TaskDeferred
+        from airflow.providers.standard.triggers.external_task import DagStateTrigger
+        defer = TaskDeferred(
+            trigger=DagStateTrigger(
+                dag_id=drte.trigger_dag_id,
+                states=drte.allowed_states + drte.failed_states,
+                execution_dates=[drte.logical_date],
+                run_ids=[drte.dag_run_id],
+                poll_interval=drte.poke_interval,
+            ),
+            method_name="execute_complete",
+        )
+
+        log.info("Pausing task as DEFERRED. ", dag_id=ti.dag_id, task_id=ti.task_id, run_id=ti.run_id)
+
+        classpath, trigger_kwargs = defer.trigger.serialize()
+
+        msg = DeferTask(
+            classpath=classpath,
+            trigger_kwargs=trigger_kwargs,
+            trigger_timeout=defer.timeout,
+            next_method=defer.method_name,
+            next_kwargs=defer.kwargs or {},
+        )
+        state = IntermediateTIState.DEFERRED
+        # raise TaskDeferred(
+        #     trigger=DagStateTrigger(
+        #                 dag_id=drte.trigger_dag_id,
+        #                 states=drte.allowed_states + drte.failed_states,
+        #                 execution_dates=[drte.logical_date],
+        #                 run_ids=[drte.dag_run_id],
+        #                 poll_interval=drte.poke_interval,
+        #             ),
+        #     method_name="execute_complete",
+        # )
+        return msg, state
+    elif drte.wait_for_completion:
         while True:
             log.info(
                 "Waiting for dag run to complete execution in allowed state.",

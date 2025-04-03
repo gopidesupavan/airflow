@@ -129,13 +129,36 @@ class WorkflowTrigger(BaseTrigger):
         :param states: task or dag states
         :return The count of records.
         """
-        return _get_count(
-            dttm_filter=self.run_ids if AIRFLOW_V_3_0_PLUS else self.execution_dates,
-            external_task_ids=self.external_task_ids,
-            external_task_group_id=self.external_task_group_id,
-            external_dag_id=self.external_dag_id,
-            states=states,
-        )
+
+        if AIRFLOW_V_3_0_PLUS:
+            from airflow.sdk.execution_time.context import get_ti_count, get_dr_count
+            if self.external_task_ids or self.external_task_group_id:
+                count = sync_to_async(get_ti_count)(
+                    dag_id=self.external_dag_id,
+                    task_ids=self.external_task_ids,
+                    task_group_id=self.external_task_group_id,
+                    logical_dates=self.execution_dates,
+                    states=states,
+                    run_ids=self.run_ids,
+                )
+            else:
+                count = sync_to_async(get_dr_count)(
+                    dag_id=self.external_dag_id,
+                    logical_dates=self.execution_dates,
+                    run_ids=self.run_ids,
+                    states=states,
+                )
+        else:
+            count=  _get_count(
+                dttm_filter=self.run_ids if AIRFLOW_V_3_0_PLUS else self.execution_dates,
+                external_task_ids=self.external_task_ids,
+                external_task_group_id=self.external_task_group_id,
+                external_dag_id=self.external_dag_id,
+                states=states,
+            )
+
+        return count
+
 
 
 class DagStateTrigger(BaseTrigger):

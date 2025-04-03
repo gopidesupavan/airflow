@@ -52,8 +52,8 @@ if TYPE_CHECKING:
         AssetResult,
         ConnectionResult,
         PrevSuccessfulDagRunResponse,
-        VariableResult, TICount,
-)
+        VariableResult,
+    )
     from airflow.sdk.types import OutletEventAccessorsProtocol
 
 
@@ -586,36 +586,6 @@ def context_get_outlet_events(context: Context) -> OutletEventAccessorsProtocol:
     return outlet_events
 
 
-def get_ti_count(
-    dag_id: str,
-    task_ids: list[str] | None = None,
-    task_group_id: str | None = None,
-    logical_dates: list[datetime] | None = None,
-    run_ids: list[str] | None = None,
-    states: list[str] | None = None,
-) -> int:
-    from airflow.sdk.execution_time.comms import GetTICount
-    from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
-    """Return the number of task instances matching the given criteria."""
-    with SUPERVISOR_COMMS.lock:
-        SUPERVISOR_COMMS.send_request(
-            log=log,
-            msg=GetTICount(
-                dag_id=dag_id,
-                task_ids=task_ids,
-                task_group_id=task_group_id,
-                logical_dates=logical_dates,
-                run_ids=run_ids,
-                states=states,
-            ),
-        )
-        response = SUPERVISOR_COMMS.get_message()
-
-    if TYPE_CHECKING:
-        assert isinstance(response, TICount)
-
-    return response.count
-
 def get_dr_count(
     dag_id: str,
     logical_dates: list[datetime] | None = None,
@@ -623,8 +593,9 @@ def get_dr_count(
     states: list[str] | None = None,
 ) -> int:
     """Return the number of DAG runs matching the given criteria."""
-    from airflow.sdk.execution_time.comms import GetDRCount
+    from airflow.sdk.execution_time.comms import DRCount, GetDRCount
     from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
+
     with SUPERVISOR_COMMS.lock:
         SUPERVISOR_COMMS.send_request(
             log=log,

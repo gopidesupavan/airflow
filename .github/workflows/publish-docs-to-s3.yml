@@ -24,7 +24,7 @@ on:  # yamllint disable-line rule:truthy
         description: "The branch or tag to checkout for the docs publishing"
         required: false
         type: string
-        default: "providers-amazon/9.6.1"
+        default: "main"
       exclude-docs:
         description: "Comma separated list of docs to exclude"
         required: false
@@ -46,7 +46,7 @@ on:  # yamllint disable-line rule:truthy
         description: "The branch or tag to checkout for the docs publishing"
         required: false
         type: string
-        default: "providers-amazon/9.6.1"
+        default: "main"
       exclude-docs:
         description: "Comma separated list of docs to exclude"
         required: false

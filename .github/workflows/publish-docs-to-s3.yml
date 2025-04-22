@@ -126,8 +126,9 @@ jobs:
       - name: "Building docs with --docs-only flag"
         env:
           DOCS_LIST_AS_STRING: ${{ inputs.docs-list-as-string }}
-        run: >
+        run: |
           cd "${AIRFLOW_SOURCES_ROOT}" && breeze build-docs ${DOCS_LIST_AS_STRING} --docs-only
+          ls -la "${AIRFLOW_SOURCES_ROOT}/generated/_build"
       - name: "Upload build docs"
         uses: actions/upload-artifact@v4
         with:

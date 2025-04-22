@@ -203,6 +203,7 @@ jobs:
       # This write is only given here for `push` events from "apache/airflow" repo. It is not given for PRs
       # from forks. This is to prevent malicious PRs from creating images in the "apache/airflow" repo.
       packages: write
+      id-token: write
 #    with:
 #      runs-on-as-json-public: ${{ needs.build-info.outputs.runs-on-as-json-public }}
 #      runs-on-as-json-self-hosted: ${{ needs.build-info.outputs.runs-on-as-json-self-hosted }}

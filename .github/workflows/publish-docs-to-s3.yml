@@ -24,7 +24,7 @@ on:  # yamllint disable-line rule:truthy
         description: "The branch or tag to checkout for the docs publishing"
         required: false
         type: string
-        default: "main"
+        default: "providers-amazon/9.6.1"
       exclude-docs:
         description: "Comma separated list of docs to exclude"
         required: false
@@ -38,7 +38,7 @@ on:  # yamllint disable-line rule:truthy
       docs-list-as-string:
         description: "Comma separated list of docs to build"
         required: false
-        default: ""
+        default: "standard"
         type: string
   workflow_dispatch:
     inputs:
@@ -46,7 +46,7 @@ on:  # yamllint disable-line rule:truthy
         description: "The branch or tag to checkout for the docs publishing"
         required: false
         type: string
-        default: "main"
+        default: "providers-amazon/9.6.1"
       exclude-docs:
         description: "Comma separated list of docs to exclude"
         required: false
@@ -127,7 +127,7 @@ jobs:
         env:
           DOCS_LIST_AS_STRING: ${{ inputs.docs-list-as-string }}
         run: >
-          breeze build-docs ${DOCS_LIST_AS_STRING} --docs-only
+          cd "${AIRFLOW_SOURCES_ROOT}" && breeze build-docs ${DOCS_LIST_AS_STRING} --docs-only
       - name: "Upload build docs"
         uses: actions/upload-artifact@v4
         with:
@@ -224,4 +224,4 @@ jobs:
         run: |
           breeze release-management publish-docs-to-s3 --source-dir-path ${SOURCE_DIR_PATH} \
           --destination-location ${DESTINATION_LOCATION} --stable-versions --run-in-parallel \
-          --exclude-docs ${EXCLUDE_DOCS}
+          --exclude-docs ${EXCLUDE_DOCS} --dry-run

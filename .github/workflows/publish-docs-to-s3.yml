@@ -46,7 +46,7 @@ on:  # yamllint disable-line rule:truthy
         description: "The branch or tag to checkout for the docs publishing"
         required: false
         type: string
-        default: "main"
+        default: "providers-amazon/9.6.1"
       exclude-docs:
         description: "Comma separated list of docs to exclude"
         required: false
@@ -132,7 +132,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: airflow-docs
-          path: ${{ env.AIRFLOW_SOURCES_ROOT }}/generated/_build'
+          path: ${{ env.AIRFLOW_SOURCES_ROOT }}/generated/_build
           retention-days: '7'
           if-no-files-found: 'error'
           overwrite: 'true'
@@ -172,7 +172,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: airflow-docs
-          path: ${{ env.AIRFLOW_SOURCES_ROOT }}/generated/_build'
+          path: ${{ env.AIRFLOW_SOURCES_ROOT }}/generated/_build
       - name: Check disk space available
         run: df -h
       # Here we will clone airflow-site repo, but instead will create

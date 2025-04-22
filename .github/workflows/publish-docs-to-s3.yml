@@ -191,18 +191,18 @@ jobs:
         env:
           DOCS_LIST_AS_STRING: ${{ inputs.docs-list-as-string }}
         run: >
-          breeze release-management publish-docs --override-versioned --run-in-parallel
+          cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management publish-docs --override-versioned --run-in-parallel
           ${DOCS_LIST_AS_STRING}
       - name: Check disk space available
         run: df -h
       - name: "Generate back references for providers"
-        run: breeze release-management add-back-references all-providers
+        run: cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management add-back-references all-providers
       - name: "Generate back references for apache-airflow"
-        run: breeze release-management add-back-references apache-airflow
+        run: cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management add-back-references apache-airflow
       - name: "Generate back references for docker-stack"
-        run: breeze release-management add-back-references docker-stack
+        run: cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management add-back-references docker-stack
       - name: "Generate back references for helm-chart"
-        run: breeze release-management add-back-references helm-chart
+        run: cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management add-back-references helm-chart
       - name: Install AWS CLI v2
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
@@ -222,6 +222,6 @@ jobs:
           SOURCE_DIR_PATH: "/mnt/airflow-site/docs-archive/"
           EXCLUDE_DOCS: "${{ inputs.exclude-docs }}"
         run: |
-          breeze release-management publish-docs-to-s3 --source-dir-path ${SOURCE_DIR_PATH} \
+          cd "${AIRFLOW_SOURCES_ROOT}" && breeze release-management publish-docs-to-s3 --source-dir-path ${SOURCE_DIR_PATH} \
           --destination-location ${DESTINATION_LOCATION} --stable-versions --run-in-parallel \
           --exclude-docs ${EXCLUDE_DOCS} --dry-run

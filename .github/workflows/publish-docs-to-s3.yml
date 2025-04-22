@@ -18,6 +18,28 @@
 ---
 name: Publish Docs to S3
 on:  # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      ref:
+        description: "The branch or tag to checkout for the docs publishing"
+        required: true
+        type: string
+        default: "main"
+      exclude-docs:
+        description: "Comma separated list of docs to exclude"
+        required: false
+        default: ""
+        type: string
+      destination-location:
+        description: "The destination location in S3"
+        required: false
+        default: "s3://staging-docs-airflow-apache-org/docs"
+        type: string
+      docs-list-as-string:
+        description: "Comma separated list of docs to build"
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       ref:

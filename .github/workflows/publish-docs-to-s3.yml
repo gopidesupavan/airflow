@@ -111,18 +111,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: "Prepare breeze & CI image: 3.9"
-        uses: ./.github/actions/prepare_breeze_and_image
-        with:
-          platform: "linux/amd64"
-          python: 3.9
-          use-uv: true
       - name: "Checkout from ${{ inputs.ref }} to build docs"
         run: |
           git clone https://github.com/apache/airflow.git "${AIRFLOW_ROOT_PATH}"
           cd "${AIRFLOW_ROOT_PATH}" && git checkout ${REF}
         env:
           REF: ${{ inputs.ref }}
+      - name: "Prepare breeze & CI image: 3.9"
+        uses: ./.github/actions/prepare_breeze_and_image
+        with:
+          platform: "linux/amd64"
+          python: 3.9
+          use-uv: true
       - name: "Building docs with --docs-only flag"
         env:
           DOCS_LIST_AS_STRING: ${{ inputs.docs-list-as-string }}

@@ -38,7 +38,7 @@ on:  # yamllint disable-line rule:truthy
       docs-list-as-string:
         description: "Comma separated list of docs to build"
         required: false
-        default: ""
+        default: "standard"
         type: string
   workflow_dispatch:
     inputs:

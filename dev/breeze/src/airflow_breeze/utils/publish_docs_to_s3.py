@@ -93,6 +93,7 @@ class S3DocsPublish:
         return docs_to_process
 
     def doc_exists(self, s3_bucket_doc_location: str) -> bool:
+        return False
         parts = s3_bucket_doc_location[5:].split("/", 1)
         bucket = parts[0]
         key = parts[1]

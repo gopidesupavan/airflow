@@ -98,7 +98,7 @@ class S3DocsPublish:
         key = parts[1]
         response = s3_client.list_objects_v2(Bucket=bucket, Prefix=key)
 
-        return response["KeyCount"] > 0
+        return False #response["KeyCount"] > 0
 
     def sync_docs_to_s3(self, source: str, destination: str):
         if self.dry_run:

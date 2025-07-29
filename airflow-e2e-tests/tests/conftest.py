@@ -14,36 +14,68 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 from __future__ import annotations
+
+from shutil import copyfile, copy, copytree
+
 from testcontainers.compose import DockerCompose
 import os
 
 import pytest
 import json
 from datetime import datetime
-from constants import DOCKER_COMPOSE_HOST_PORT, DOCKER_COMPOSE_PATH, DOCKER_IMAGE
-
+from constants import DOCKER_COMPOSE_HOST_PORT, DOCKER_COMPOSE_PATH, DOCKER_IMAGE, AIRFLOW_ROOT_PATH, \
+    E2E_DAGS_FOLDER
+from rich.console import Console
+console = Console(width=400, color_system="standard")
 compose_instance = None
 
-def spin_up_airflow_environment():
+def spin_up_airflow_environment(tmp_path_factory):
     global compose_instance
+    tmp_dir = tmp_path_factory.mktemp("airflow-e2e-tests")
+
+    compose_file_path = (
+        AIRFLOW_ROOT_PATH / "airflow-core" / "docs" / "howto" / "docker-compose" / "docker-compose.yaml"
+    )
+
+    copyfile(compose_file_path, tmp_dir / "docker-compose.yaml")
+
+    subfolders = ("dags", "logs", "plugins", "config")
+
+    console.print(f"[yellow]Creating subfolders:[/ {subfolders}")
+
+    # Create required directories for docker compose quick start howto
+    for subdir in subfolders:
+        (tmp_dir / subdir).mkdir()
+
+    console.print(f"[yellow]Copying dags to:[/ {tmp_dir / 'dags'}")
+    copytree(E2E_DAGS_FOLDER, tmp_dir / "dags", dirs_exist_ok=True)
+
+    dot_env_file = tmp_dir / ".env"
+
+    console.print(f"[yellow]Creating .env file :[/ {dot_env_file}")
+
+    dot_env_file.write_text(f"AIRFLOW_UID={os.getuid()}\n")
     os.environ["AIRFLOW_IMAGE_NAME"] = DOCKER_IMAGE
-    compose_instance = DockerCompose(DOCKER_COMPOSE_PATH,
+
+    compose_instance = DockerCompose(tmp_dir,
                        compose_file_name=["docker-compose.yaml"],
                        pull=False)
+
     compose_instance.start()
+
     compose_instance.wait_for(f"http://{DOCKER_COMPOSE_HOST_PORT}/api/v2/version")
 
 
 
 
 def pytest_sessionstart(session):
-    print("Spinning airflow environment...")
+    console.print("[blue]Spinning airflow environment...")
 
-    spin_up_airflow_environment()
+    tmp_path_factory = session.config._tmp_path_factory
+    spin_up_airflow_environment(tmp_path_factory)
 
-    print("Airflow environment is up and running!")
+    console.print("[green]Airflow environment is up and running!")
 
 test_results = []
 
@@ -91,11 +123,11 @@ def generate_test_report(results):
 
     # Generate HTML report (simplified)
 
-    print(f"\n{'=' * 50}")
-    print("TEST EXECUTION SUMMARY")
-    print(f"{'=' * 50}")
-    print(f"Total Tests: {report['summary']['total_tests']}")
-    print(f"Passed: {report['summary']['passed']}")
-    print(f"Failed: {report['summary']['failed']}")
-    print(f"Execution Time: {report['summary']['execution_time']:.2f}s")
-    print(f"Reports generated: test_report.json, test_report.html")
+    console.print(f"[blue]\n{'=' * 50}")
+    console.print("[blue]TEST EXECUTION SUMMARY")
+    console.print(f"[blue]{'=' * 50}")
+    console.print(f"[blue]Total Tests: {report['summary']['total_tests']}")
+    console.print(f"[blue]Passed: {report['summary']['passed']}")
+    console.print(f"[red]Failed: {report['summary']['failed']}")
+    console.print(f"[blue]Execution Time: {report['summary']['execution_time']:.2f}s")
+    console.print(f"[blue]Reports generated: test_report.json")

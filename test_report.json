@@ -1,0 +1,26 @@
+{
+  "summary": {
+    "total_tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "execution_time": 8.7033364730014
+  },
+  "test_results": [
+    {
+      "test_name": "test_dag_unpause",
+      "test_class": "TestBasicDagFunctionality",
+      "status": "passed",
+      "duration": 2.7961129030009033,
+      "error": null,
+      "timestamp": "2025-07-29T12:03:44.334536"
+    },
+    {
+      "test_name": "test_task_sdk_health_check",
+      "test_class": "TestTaskSDKBasicFunctionality",
+      "status": "passed",
+      "duration": 5.907223570000497,
+      "error": null,
+      "timestamp": "2025-07-29T12:03:50.245283"
+    }
+  ]
+}

@@ -21,8 +21,6 @@ from pathlib import Path
 
 AIRFLOW_ROOT_PATH = Path(__file__).resolve().parents[2]
 
-os.environ["AIRFLOW_PROJ_DIR"] = str(AIRFLOW_ROOT_PATH) + "/airflow-e2e-tests/tests/tests/conf"
-
 DOCKER_COMPOSE_HOST_PORT = os.environ.get("HOST_PORT", "localhost:8080")
 DEFAULT_PYTHON_MAJOR_MINOR_VERSION = "3.10"
 DEFAULT_DOCKER_IMAGE = f"ghcr.io/apache/airflow/main/prod/python{DEFAULT_PYTHON_MAJOR_MINOR_VERSION}:latest"
@@ -35,4 +33,6 @@ DOCKER_COMPOSE_PATH = (
 
 AIRFLOW_WWW_USER_USERNAME = os.environ.get("_AIRFLOW_WWW_USER_USERNAME", "airflow")
 AIRFLOW_WWW_USER_PASSWORD = os.environ.get("_AIRFLOW_WWW_USER_PASSWORD", "airflow")
+
+E2E_DAGS_FOLDER = AIRFLOW_ROOT_PATH / "airflow-e2e-tests" / "tests"/ "dags"
 

@@ -1,3 +1,4 @@
+import time
 from functools import cached_property
 
 import requests
@@ -49,17 +50,38 @@ class AirflowClient:
        return self._make_request(
            method="PATCH",
            endpoint=f"dags/{dag_id}",
-           json={"is_paused": True},
+           json={"is_paused": False},
        )
 
-    def trigger_dag(self, dag_id: str):
-        pass
+    def trigger_dag(self, dag_id: str, json=None):
+        if json is None:
+            json = {}
+        return self._make_request(
+            method="POST",
+            endpoint=f"dags/{dag_id}/dagRuns",
+            json=json
+        )
 
-    def get_dag_run(self, dag_id: str, run_id: str):
-        pass
+    def wait_for_dag_run(self, dag_id: str, run_id: str, timeout=180, check_interval=5):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            response = self._make_request(
+                method="GET",
+                endpoint=f"dags/{dag_id}/dagRuns/{run_id}",
+            )
+            print(response)
+            state = response.get("state")
+            if state in {"success", "failed"}:
+                return state
+            time.sleep(check_interval)
+        raise TimeoutError(f"DAG run {run_id} for DAG {dag_id} did not complete within {timeout} seconds.")
 
-    def wait_for_dag_run(self, dag_id: str, run_id: str):
-        pass
+    def get_xcom_value(self, dag_id: str, task_id: str, run_id: str, key:str, map_index=-1):
+        return self._make_request(
+            method="GET",
+            endpoint=f"dags/{dag_id}/dagRuns/{run_id}/taskInstances/{task_id}/xcomEntries/{key}?map_index={map_index}"
+        )
+
 
 class TaskSDKClient:
     def __init__(self):

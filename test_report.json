@@ -1,26 +1,34 @@
 {
   "summary": {
-    "total_tests": 2,
-    "passed": 2,
+    "total_tests": 3,
+    "passed": 3,
     "failed": 0,
-    "execution_time": 8.7033364730014
+    "execution_time": 19.197045453009196
   },
   "test_results": [
     {
       "test_name": "test_dag_unpause",
       "test_class": "TestBasicDagFunctionality",
       "status": "passed",
-      "duration": 2.7961129030009033,
+      "duration": 4.851835274006589,
       "error": null,
-      "timestamp": "2025-07-29T12:03:44.334536"
+      "timestamp": "2025-07-30T00:03:55.154661"
+    },
+    {
+      "test_name": "test_xcom_value",
+      "test_class": "TestBasicDagFunctionality",
+      "status": "passed",
+      "duration": 11.367739095003344,
+      "error": null,
+      "timestamp": "2025-07-30T00:04:06.529715"
     },
     {
       "test_name": "test_task_sdk_health_check",
       "test_class": "TestTaskSDKBasicFunctionality",
       "status": "passed",
-      "duration": 5.907223570000497,
+      "duration": 2.977471083999262,
       "error": null,
-      "timestamp": "2025-07-29T12:03:50.245283"
+      "timestamp": "2025-07-30T00:04:09.509156"
     }
   ]
 }

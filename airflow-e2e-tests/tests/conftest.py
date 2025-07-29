@@ -16,6 +16,7 @@
 # under the License.
 from __future__ import annotations
 
+import time
 from shutil import copyfile, copy, copytree
 
 from testcontainers.compose import DockerCompose
@@ -65,6 +66,7 @@ def spin_up_airflow_environment(tmp_path_factory):
     compose_instance.start()
 
     compose_instance.wait_for(f"http://{DOCKER_COMPOSE_HOST_PORT}/api/v2/version")
+    compose_instance.exec_in_container(command=["airflow", "dags", "reserialize"], service_name="airflow-dag-processor")
 
 
 
@@ -117,7 +119,6 @@ def generate_test_report(results):
         "test_results": results
     }
 
-    # Save JSON report
     with open("test_report.json", "w") as f:
         json.dump(report, f, indent=2)
 

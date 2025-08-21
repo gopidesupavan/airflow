@@ -29,8 +29,6 @@ from airflow.exceptions import AirflowException
 from airflow.models import Connection
 from airflow.providers.amazon.aws.utils.connection_wrapper import AwsConnectionWrapper, _ConnectionMetadata
 
-pytestmark = pytest.mark.db_test
-
 
 MOCK_AWS_CONN_ID = "mock-conn-id"
 MOCK_CONN_TYPE = "aws"

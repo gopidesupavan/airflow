@@ -30,6 +30,7 @@ from airflow.models import Connection
 from airflow.providers.amazon.aws.utils.connection_wrapper import AwsConnectionWrapper, _ConnectionMetadata
 
 
+
 MOCK_AWS_CONN_ID = "mock-conn-id"
 MOCK_CONN_TYPE = "aws"
 MOCK_ROLE_ARN = "arn:aws:iam::222222222222:role/awesome-role"

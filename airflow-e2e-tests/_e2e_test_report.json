@@ -1,0 +1,362 @@
+{
+  "summary": {
+    "total_tests": 44,
+    "passed": 44,
+    "failed": 0,
+    "execution_time": 430.2600016490178
+  },
+  "test_results": [
+    {
+      "test_name": "test_dag_unpause",
+      "test_class": "TestBasicDagFunctionality",
+      "status": "passed",
+      "duration": 3.4506000239998684,
+      "error": null,
+      "timestamp": "2025-08-25T21:03:22.282778"
+    },
+    {
+      "test_name": "test_xcom_value",
+      "test_class": "TestBasicDagFunctionality",
+      "status": "passed",
+      "duration": 15.884450908000872,
+      "error": null,
+      "timestamp": "2025-08-25T21:03:38.171322"
+    },
+    {
+      "test_name": "test_task_sdk_health_check",
+      "test_class": "TestTaskSDKBasicFunctionality",
+      "status": "passed",
+      "duration": 0.8417588070005877,
+      "error": null,
+      "timestamp": "2025-08-25T21:03:39.022433"
+    },
+    {
+      "test_name": "test_example_dags[example_bash_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.575159794003412,
+      "error": null,
+      "timestamp": "2025-08-25T21:03:49.600154"
+    },
+    {
+      "test_name": "test_example_dags[example_bash_operator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.416859270000714,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:00.023003"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_datetime_operator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.515707272999862,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:05.548308"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_datetime_operator_2]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.133519021997927,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:10.683913"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_datetime_operator_3]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.147598005001782,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:15.834081"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_dop_operator_v3]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.159180314003606,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:20.995154"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_labels]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.158720479994372,
+      "error": null,
+      "timestamp": "2025-08-25T21:04:31.155927"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_operator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 50.68954489799944,
+      "error": null,
+      "timestamp": "2025-08-25T21:05:21.850407"
+    },
+    {
+      "test_name": "test_example_dags[example_branch_python_operator_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 40.59502066799905,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:02.455994"
+    },
+    {
+      "test_name": "test_example_dags[example_complex]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 20.549667247003526,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:23.027774"
+    },
+    {
+      "test_name": "test_example_dags[example_custom_weight]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.422570396003721,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:28.503754"
+    },
+    {
+      "test_name": "test_example_dags[example_dag_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.18309486000362,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:38.690175"
+    },
+    {
+      "test_name": "test_example_dags[example_dynamic_task_mapping]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.146653513002093,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:43.839730"
+    },
+    {
+      "test_name": "test_example_dags[example_dynamic_task_mapping_with_no_taskflow_operators]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.330368744005682,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:54.175533"
+    },
+    {
+      "test_name": "test_example_dags[example_external_task_marker_parent]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.157506695002667,
+      "error": null,
+      "timestamp": "2025-08-25T21:06:59.336435"
+    },
+    {
+      "test_name": "test_example_dags[example_nested_branch_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.2053394809991,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:09.545202"
+    },
+    {
+      "test_name": "test_example_dags[example_sensor_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.169195445996593,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:14.717229"
+    },
+    {
+      "test_name": "test_example_dags[example_setup_teardown]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.187350801999855,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:24.908895"
+    },
+    {
+      "test_name": "test_example_dags[example_setup_teardown_taskflow]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.154166897998948,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:30.065599"
+    },
+    {
+      "test_name": "test_example_dags[example_short_circuit_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.185042149001674,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:35.253035"
+    },
+    {
+      "test_name": "test_example_dags[example_short_circuit_operator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.162073667997902,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:40.417143"
+    },
+    {
+      "test_name": "test_example_dags[example_simplest_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.123914439005603,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:45.543692"
+    },
+    {
+      "test_name": "test_example_dags[example_skip_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.140960486998665,
+      "error": null,
+      "timestamp": "2025-08-25T21:07:50.688420"
+    },
+    {
+      "test_name": "test_example_dags[example_task_group]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.247290312996483,
+      "error": null,
+      "timestamp": "2025-08-25T21:08:00.938620"
+    },
+    {
+      "test_name": "test_example_dags[example_task_group_decorator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.375100445999124,
+      "error": null,
+      "timestamp": "2025-08-25T21:08:11.317681"
+    },
+    {
+      "test_name": "test_example_dags[example_task_mapping_second_order]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.2676711469976,
+      "error": null,
+      "timestamp": "2025-08-25T21:08:21.589117"
+    },
+    {
+      "test_name": "test_example_dags[example_time_delta_sensor_async]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 35.51822420999815,
+      "error": null,
+      "timestamp": "2025-08-25T21:08:57.043727"
+    },
+    {
+      "test_name": "test_example_dags[example_trigger_controller_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.134127414996328,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:02.180463"
+    },
+    {
+      "test_name": "test_example_dags[example_trigger_target_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.1377896789999795,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:07.320802"
+    },
+    {
+      "test_name": "test_example_dags[example_weekday_branch_operator]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.1500554570011445,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:12.473179"
+    },
+    {
+      "test_name": "test_example_dags[example_workday_timetable]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.195187913996051,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:17.670170"
+    },
+    {
+      "test_name": "test_example_dags[example_xcom]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.279308345001482,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:27.951853"
+    },
+    {
+      "test_name": "test_example_dags[example_xcom_args]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.122768683999311,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:33.078871"
+    },
+    {
+      "test_name": "test_example_dags[example_xcom_args_with_operators]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.175270635001652,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:43.255937"
+    },
+    {
+      "test_name": "test_example_dags[latest_only]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.120368078998581,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:48.378208"
+    },
+    {
+      "test_name": "test_example_dags[latest_only_with_trigger]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.151125891003176,
+      "error": null,
+      "timestamp": "2025-08-25T21:09:53.531092"
+    },
+    {
+      "test_name": "test_example_dags[tutorial]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.164245619998837,
+      "error": null,
+      "timestamp": "2025-08-25T21:10:03.697231"
+    },
+    {
+      "test_name": "test_example_dags[tutorial_dag]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.117986778001068,
+      "error": null,
+      "timestamp": "2025-08-25T21:10:08.816964"
+    },
+    {
+      "test_name": "test_example_dags[tutorial_taskflow_api]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.118940808002662,
+      "error": null,
+      "timestamp": "2025-08-25T21:10:13.937627"
+    },
+    {
+      "test_name": "test_example_dags[tutorial_taskflow_api_virtualenv]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 10.159838357001718,
+      "error": null,
+      "timestamp": "2025-08-25T21:10:24.099576"
+    },
+    {
+      "test_name": "test_example_dags[tutorial_taskflow_templates]",
+      "test_class": "TestExampleDags",
+      "status": "passed",
+      "duration": 5.1386775830033,
+      "error": null,
+      "timestamp": "2025-08-25T21:10:29.240043"
+    }
+  ]
+}

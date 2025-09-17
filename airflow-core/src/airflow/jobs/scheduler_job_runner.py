@@ -891,6 +891,14 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 or executor.has_task(ti)  # This scheduler has this task already
             )
 
+            cls.logger().info("Executor Task queued status %s", str(executor.has_task(ti)))
+
+            cls.logger().info(
+                "Current task and executor event for task %s: task was rescheduled (state=%s) "
+                "after executor reported %s",
+                ti, ti.state, state
+            )
+
             if ti_queued and not ti_requeued:
                 Stats.incr(
                     "scheduler.tasks.killed_externally",

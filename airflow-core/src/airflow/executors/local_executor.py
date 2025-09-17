@@ -33,6 +33,7 @@ import os
 import sys
 from multiprocessing import Queue, SimpleQueue
 from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
 from airflow.executors import workloads
 from airflow.executors.base_executor import PARALLELISM, BaseExecutor
@@ -96,6 +97,9 @@ def _run_worker(
             raise TypeError(f"Don't know how to get ti key from {type(workload).__name__}")
 
         try:
+            # Signal that task is starting execution (moving from queued to running)
+            output.put((key, TaskInstanceState.RUNNING, None))
+
             _execute_work(log, workload)
 
             output.put((key, TaskInstanceState.SUCCESS, None))
@@ -221,8 +225,20 @@ class LocalExecutor(BaseExecutor):
     def _read_results(self):
         while not self.result_queue.empty():
             key, state, exc = self.result_queue.get()
+            self.log.info("got result for key %s: and state %s", key, state)
 
-            self.change_state(key, state)
+
+            # Skip RUNNING state as it's handled in _process_workloads
+            if state == TaskInstanceState.RUNNING:
+                continue
+
+            # Use the appropriate base executor methods for final states
+            if state == TaskInstanceState.SUCCESS:
+                self.success(key)
+            elif state == TaskInstanceState.FAILED:
+                self.fail(key, exc)
+            else:
+                self.change_state(key, state)
 
     def end(self) -> None:
         """End the executor."""
@@ -255,7 +271,39 @@ class LocalExecutor(BaseExecutor):
 
     @provide_session
     def queue_workload(self, workload: workloads.All, session: Session = NEW_SESSION):
-        self.activity_queue.put(workload)
-        with self._unread_messages:
-            self._unread_messages.value += 1
-        self._check_workers()
+        # Add to queued_tasks to support has_task() checks for race condition prevention
+        if isinstance(workload, workloads.ExecuteTask):
+            self.queued_tasks[workload.ti.key] = workload
+
+    def _process_workloads(self, workloads: Sequence[workloads.All]) -> None:
+        """
+        Process the given workloads by putting them into the activity queue.
+
+        This method is called by the base executor's trigger_tasks() method
+        to process batches of queued workloads.
+
+        :param workloads: List of workloads to process
+        """
+        from airflow.executors.workloads import ExecuteTask
+
+        for workload in workloads:
+            if not isinstance(workload, ExecuteTask):
+                raise ValueError(f"LocalExecutor cannot handle workload of type {type(workload)}")
+
+            key = workload.ti.key
+
+            # Remove from queued_tasks and add to running (like Lambda executor)
+            del self.queued_tasks[key]
+            self.activity_queue.put(workload)
+            self.running.add(key)
+            with self._unread_messages:
+                self._unread_messages.value += 1
+
+
+            # Put workload into activity queue for worker processing
+            # self.activity_queue.put(workload)
+            # with self._unread_messages:
+            #     self._unread_messages.value += 1
+
+        # Check if we need to spawn more workers
+        #self._check_workers()

@@ -844,5 +844,6 @@ setup local machine for development.
 
 ----------------
 
+
 Once you have your environment set up, you can start contributing to Airflow. You can find more
 about ways you can contribute in the `How to contribute <04_how_to_contribute.rst>`_ document.

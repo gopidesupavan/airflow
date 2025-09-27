@@ -139,4 +139,5 @@ if __name__ == "__main__":
         )
     else:
         print("[yellow]Skipped\n")
+
         print(f"Not updated {AIRFLOW_IML_FILE} and {MODULES_XML_FILE} files\n")

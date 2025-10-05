@@ -34,6 +34,7 @@ from airflow.exceptions import (
     AirflowException,
     AirflowOptionalProviderFeatureException,
 )
+from airflow.providers.common.sql.hooks.handlers import fetch_all_handler
 from airflow.providers.common.sql.hooks.sql import DbApiHook
 from airflow.providers.postgres.dialects.postgres import PostgresDialect
 
@@ -651,3 +652,9 @@ class PostgresHook(DbApiHook):
                     nb_rows += len(chunked_rows)
                     self.log.info("Loaded %s rows into %s so far", nb_rows, table)
         self.log.info("Done loading. Loaded a total of %s rows into %s", nb_rows, table)
+
+    def get_schema(self, table_name: str):
+        return self.run(
+            sql = f"""SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '{table_name}';""",
+            handler = fetch_all_handler
+        )

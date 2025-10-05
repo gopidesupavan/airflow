@@ -22,7 +22,7 @@ from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.sdk import DAG, Asset, AssetWatcher
 
 # Define a trigger that listens to an external message queue (AWS SQS in this case)
-trigger = MessageQueueTrigger(scheme="sqs", sqs_queue="https://sqs.us-east-1.amazonaws.com/0123456789/Test")
+trigger = MessageQueueTrigger(scheme="sqs", sqs_queue="https://sqs.us-east-1.amazonaws.com/735234585484/customer-data-feed")
 # Define an asset that watches for messages on the queue
 asset = Asset("sqs_queue_asset", watchers=[AssetWatcher(name="sqs_watcher", trigger=trigger)])
 

@@ -52,8 +52,9 @@ class ConnectionManager(LoggingMixin):
         """Convert Airflow connection to framework ConnectionConfig."""
         # Determine storage type from connection type
         storage_type = self._determine_storage_type(conn)
-
-        credentials = self._extract_credentials(conn, storage_type)
+        credentials = {}
+        if storage_type:
+            credentials = self._extract_credentials(conn, storage_type)
 
         extra_config = conn.extra_dejson if conn.extra else {}
 
@@ -82,7 +83,7 @@ class ConnectionManager(LoggingMixin):
         if conn_type in type_mapping:
             return type_mapping[conn_type]
 
-        return StorageType.LOCAL
+        return None
 
     @classmethod
     def filter_none(cls, params: dict[str, Any]) -> dict[str, Any]:

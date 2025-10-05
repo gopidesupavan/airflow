@@ -44,6 +44,8 @@ class FormatType(Enum):
 
     PARQUET = "parquet"
     ICEBERG = "iceberg"
+    SQLITE = "sqlite"
+    POSTGRES = "postgres"
 
 
 @dataclass(frozen=True)

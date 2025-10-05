@@ -49,13 +49,14 @@ class DataFusionEngine(LoggingMixin):
         """
         connection_config = self.connection_manager.get_connection_config(config.connection_id)
 
-        if self._require_object_store(connection_config.storage_type):
+        if connection_config.storage_type and self._require_object_store(connection_config.storage_type):
             self._register_object_store(connection_config, path=config.path)
 
         format_handler = self.format_handler_factory.get_handler(config.format_type.value)
-        format_handler.register_data_source_format(self.ctx, config)
+        if format_handler is not None:
+            format_handler.register_data_source_format(self.ctx, config)
 
-        self.registered_tables[config.table_name] = config.path
+            self.registered_tables[config.table_name] = config.path
 
     @staticmethod
     def _require_object_store(storage_type: StorageType) -> bool:

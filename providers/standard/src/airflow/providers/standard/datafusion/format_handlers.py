@@ -75,10 +75,11 @@ class FormatHandlerFactory:
         for handler in default_handlers:
             self._handlers[handler.get_format()] = handler
 
-    def get_handler(self, format_type: str) -> FormatHandler:
+    def get_handler(self, format_type: str) -> FormatHandler | None:
         """Get format handler for specified format type."""
         if format_type not in self._handlers:
-            raise ValueError(
-                f"Unsupported format type: {format_type}. Supported formats: {list(self._handlers.keys())}"
-            )
+            return None
+            # raise ValueError(
+            #     f"Unsupported format type: {format_type}. Supported formats: {list(self._handlers.keys())}"
+            # )
         return self._handlers[format_type]

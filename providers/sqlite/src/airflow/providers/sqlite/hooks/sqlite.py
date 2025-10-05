@@ -20,6 +20,7 @@ from __future__ import annotations
 import sqlite3
 from urllib.parse import unquote
 
+from airflow.providers.common.sql.hooks.handlers import fetch_all_handler
 from airflow.providers.common.sql.hooks.sql import DbApiHook
 
 
@@ -54,3 +55,9 @@ class SqliteHook(DbApiHook):
         # See https://docs.sqlalchemy.org/en/14/dialects/sqlite.html#connect-strings for details.
         sqlalchemy_uri = airflow_sqlite_uri.replace("sqlite://", "sqlite:///")
         return sqlalchemy_uri
+
+    def get_schema(self, table_name: str) -> list[tuple]:
+        return self.run(
+            sql=f"PRAGMA table_info('{table_name}')", handler=fetch_all_handler
+        )
+

@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import cached_property
@@ -306,6 +307,12 @@ class SQLExecuteQueryOperator(BaseSQLOperator):
         return self.do_xcom_push
 
     def execute(self, context):
+        try:
+            sql = json.loads(self.sql) if isinstance(self.sql, str) else self.sql
+            if isinstance(sql, list):
+                self.sql = sql
+        except json.JSONDecodeError:
+            pass
         self.log.info("Executing: %s", self.sql)
         hook = self.get_db_hook()
         if self.split_statements is not None:

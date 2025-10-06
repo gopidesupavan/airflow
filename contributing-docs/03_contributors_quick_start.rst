@@ -842,7 +842,6 @@ setup local machine for development.
 * `GitHub Codespaces <quick-start-ide/contributors_quick_start_codespaces.rst>`_
 
 
-
 ----------------
 
 Once you have your environment set up, you can start contributing to Airflow. You can find more

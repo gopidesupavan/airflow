@@ -38,7 +38,7 @@
 
 The Apache Airflow project utilizes several types of Continuous
 Integration (CI) jobs, each with a distinct purpose and context. These
-jobs are executed by the `ci-amd.yml` and `ci-arm.yml` workflows.
+jobs are executed by the `ci-amd-arm.yml` workflow.
 
 In addition to the standard "PR" runs, we also execute "Canary" runs.
 These runs are designed to detect potential issues that could affect
@@ -124,10 +124,10 @@ Apache Airflow's CI system has evolved into what we call a composite workflow ar
 
 ## Workflow Architecture Overview
 
-Our CI system runs on two main workflows that handle different processor architectures:
+Our CI system runs on ci-amd-arm.yml workflow that handle different processor architectures:
 
-- **`ci-amd.yml`** - Handles testing on AMD64 systems (the most common architecture)
-- **`ci-arm.yml`** - Runs the same tests on ARM64 systems for compatibility
+
+The ci-amd-arm.yml workflow runs on a scheduled interval, alternating between two architectures: AMD and ARM. The AMD job runs at the 1st hour, the ARM job runs at the 3rd hour, then AMD runs again at the 7th hour, and so on.
 
 These workflows don't contain all the testing logic themselves. Instead, they call smaller, specialized workflows called composite workflows. Each composite workflow focuses on one specific area of testing.
 

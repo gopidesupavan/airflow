@@ -277,6 +277,7 @@ ClassifyTextResponse
 classname
 classpath
 classpaths
+claude
 cleartext
 cli
 clientId
@@ -374,6 +375,7 @@ csv
 Ctl
 ctor
 Ctrl
+ctx
 cubeName
 customDataImportUids
 customizability
@@ -451,6 +453,7 @@ datasetId
 Datasets
 datasets
 datasource
+datasources
 Datastore
 datastore
 Datasync
@@ -658,6 +661,7 @@ etl
 europe
 eval
 evals
+EvaluatorOutput
 eventbridge
 EventBufferValueType
 eventlet

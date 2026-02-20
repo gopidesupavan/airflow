@@ -16,28 +16,31 @@
 # under the License.
 from __future__ import annotations
 
-from airflow.providers.common.compat.sdk import AirflowException
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+from airflow.providers.common.ai.utils.datasource import StorageType
 
 
-class AgentResponseEvaluationFailure(AirflowException):
-    """Exception for evals failure."""
+@dataclass(frozen=True)
+class ConnectionConfig:
+    """Configuration for datafusion object store connections"""
+
+    conn_id: str
+    credentials: dict[str, Any] = field(default_factory=dict)
+    extra_config: dict[str, Any] = field(default_factory=dict)
 
 
-class PromptBuildError(AirflowException):
-    """Error when building prompt."""
+class FormatType(str, Enum):
+    """Supported data formats."""
+
+    PARQUET = "parquet"
+    CSV = "csv"
+    JSON = "json"
+    AVRO = "avro"
 
 
-class ModelCreationError(AirflowException):
-    """Error while creating a model."""
-
-
-class ObjectStoreCreationException(AirflowException):
-    """Error while creating a DataFusion object store."""
-
-class FileFormatRegistrationException(AirflowException):
-    """Error while registering file format"""
-
-class QueryExecutionException(AirflowException):
-    """Error while executing query"""
-
-
+class QueryResultOutputFormat(str, Enum):
+    TABULATE= "tabulate"
+    JSON = "json"

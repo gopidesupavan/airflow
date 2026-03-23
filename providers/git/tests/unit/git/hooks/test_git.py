@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 
 import pytest
 from git import Repo
@@ -352,3 +353,26 @@ class TestGitHook:
             assert os.path.exists(askpass_path)
         # Both the askpass script and the temp key file should be cleaned up
         assert not os.path.exists(askpass_path)
+
+    def test_passphrase_askpass_escapes_shell_metacharacters(self, create_connection_without_db, tmp_path):
+        marker = tmp_path / "askpass_injection_marker"
+        passphrase = f"x'; touch {marker}; echo '"
+        create_connection_without_db(
+            Connection(
+                conn_id="git_passphrase_escaped",
+                host=AIRFLOW_GIT,
+                conn_type="git",
+                extra={
+                    "key_file": "/files/pkey.pem",
+                    "private_key_passphrase": passphrase,
+                },
+            )
+        )
+
+        hook = GitHook(git_conn_id="git_passphrase_escaped")
+        with hook.configure_hook_env():
+            askpass_path = hook.env["SSH_ASKPASS"]
+            result = subprocess.run([askpass_path], check=True, capture_output=True, text=True)
+
+        assert result.stdout == f"{passphrase}\n"
+        assert not marker.exists()

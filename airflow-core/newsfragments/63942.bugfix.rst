@@ -1,0 +1,1 @@
+Git connection SSH key passphrases are now safely escaped before being exposed through ``SSH_ASKPASS``.

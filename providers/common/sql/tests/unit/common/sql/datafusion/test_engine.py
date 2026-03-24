@@ -150,6 +150,21 @@ class TestDataFusionEngine:
         engine.df_ctx.sql.assert_called_once_with("SELECT * FROM test_table")
         assert result == {"col1": [1, 2]}
 
+    def test_execute_query_with_max_rows(self):
+        engine = DataFusionEngine()
+        engine.df_ctx = MagicMock(spec=SessionContext)
+        mock_df = MagicMock(spec=["limit", "to_pydict"])
+        limited_df = MagicMock(spec=["to_pydict"])
+        limited_df.to_pydict.return_value = {"col1": [1, 2, 3]}
+        mock_df.limit.return_value = limited_df
+        engine.df_ctx.sql.return_value = mock_df
+
+        result = engine.execute_query("SELECT * FROM test_table", max_rows=3)
+
+        engine.df_ctx.sql.assert_called_once_with("SELECT * FROM test_table")
+        mock_df.limit.assert_called_once_with(3)
+        assert result == {"col1": [1, 2, 3]}
+
     def test_execute_query_failure(self):
         engine = DataFusionEngine()
         engine.df_ctx = MagicMock(spec=SessionContext)

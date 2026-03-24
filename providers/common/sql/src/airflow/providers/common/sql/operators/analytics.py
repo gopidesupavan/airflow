@@ -89,7 +89,7 @@ class AnalyticsOperator(BaseOperator):
 
         # TODO make it parallel as there is no dependency between queries
         for query in self.queries:
-            result_dict = self._df_engine.execute_query(query)
+            result_dict = self._df_engine.execute_query(query, max_rows=self.max_rows_check + 1)
             results.append({"query": query, "data": result_dict})
 
         match self.result_output_format:
@@ -108,9 +108,9 @@ class AnalyticsOperator(BaseOperator):
         max_rows_exceeded = num_rows > self.max_rows_check
         if max_rows_exceeded:
             self.log.warning(
-                "Query returned %s rows, exceeding max_rows_check (%s). Skipping result output as large datasets are unsuitable for return.",
-                num_rows,
+                "Query returned more than max_rows_check (%s) rows. Only the first %s rows were fetched to avoid materializing the full result.",
                 self.max_rows_check,
+                self.max_rows_check + 1,
             )
         return max_rows_exceeded, num_rows
 
@@ -126,7 +126,7 @@ class AnalyticsOperator(BaseOperator):
             if too_large:
                 output_parts.append(
                     f"\n### Results: {query}\n\n"
-                    f"**Skipped**: {row_count} rows exceed max_rows_check ({self.max_rows_check})\n\n"
+                    f"**Skipped**: result exceeds max_rows_check ({self.max_rows_check})\n\n"
                     f"{'-' * 40}\n"
                 )
                 continue

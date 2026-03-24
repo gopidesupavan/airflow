@@ -53,7 +53,7 @@ class TestAnalyticsOperator:
         result = operator.execute(context={})
 
         mock_engine.register_datasource.assert_called_once()
-        mock_engine.execute_query.assert_called_once_with("SELECT * FROM users_data")
+        mock_engine.execute_query.assert_called_once_with("SELECT * FROM users_data", max_rows=101)
         assert "col1" in result
         assert "col2" in result
 
@@ -64,7 +64,7 @@ class TestAnalyticsOperator:
         result = operator.execute(context={})
 
         assert "Skipped" in result
-        assert "4 rows exceed max_rows_check (3)" in result
+        assert "result exceeds max_rows_check (3)" in result
 
     def test_json_output_format(self, mock_engine):
         datasource_config = DataSourceConfig(

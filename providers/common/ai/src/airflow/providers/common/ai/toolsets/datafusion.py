@@ -23,6 +23,10 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+import sqlglot
+from sqlglot import exp
+from sqlglot.errors import ErrorLevel
+
 try:
     from airflow.providers.common.ai.utils.sql_validation import SQLSafetyError, validate_sql as _validate_sql
     from airflow.providers.common.sql.datafusion.engine import DataFusionEngine
@@ -110,6 +114,7 @@ class DataFusionToolset(AbstractToolset[Any]):
         if not datasource_configs:
             raise ValueError("datasource_configs must contain at least one DataSourceConfig")
         self._datasource_configs = datasource_configs
+        self._allowed_tables = frozenset(config.table_name for config in datasource_configs)
         self._allow_writes = allow_writes
         self._max_rows = max_rows
         self._engine: DataFusionEngine | None = None
@@ -194,6 +199,7 @@ class DataFusionToolset(AbstractToolset[Any]):
         try:
             if not self._allow_writes:
                 _validate_sql(sql)
+            self._validate_table_references(sql)
 
             engine = self._get_engine()
             pydict = engine.execute_query(sql)
@@ -219,6 +225,22 @@ class DataFusionToolset(AbstractToolset[Any]):
                     f"error: {ex!s}, Use get_schema and list_tables tools for more details."
                 ) from ex
             return json.dumps({"error": str(ex), "query": sql})
+
+    def _validate_table_references(self, sql: str) -> None:
+        """Ensure SQL only references DataSourceConfig-registered tables."""
+        try:
+            statements = sqlglot.parse(sql, error_level=ErrorLevel.RAISE)
+        except sqlglot.errors.ParseError as ex:
+            raise SQLSafetyError(f"SQL parse error: {ex}") from ex
+
+        for statement in (stmt for stmt in statements if stmt is not None):
+            for table in statement.find_all(exp.Table):
+                table_name = table.name
+                if table_name not in self._allowed_tables:
+                    raise SQLSafetyError(
+                        f"Table reference {table_name!r} is not allowed. Allowed tables: "
+                        f"{', '.join(sorted(self._allowed_tables))}"
+                    )
 
     @staticmethod
     def _is_retryable_query_error(error: QueryExecutionException) -> bool:

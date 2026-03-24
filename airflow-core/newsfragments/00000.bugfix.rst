@@ -1,0 +1,1 @@
+Restricted DataFusionToolset queries to only reference configured data source tables, preventing reads from arbitrary object-store URIs.

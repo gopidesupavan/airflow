@@ -214,6 +214,42 @@ class TestDataFusionToolsetQuery:
                 )
             )
 
+    def test_blocks_queries_for_unconfigured_tables(self):
+        cfg = _make_mock_datasource_config("sales_data")
+        ts = DataFusionToolset([cfg])
+        engine = _make_mock_engine()
+        ts._engine = engine
+
+        with pytest.raises(SQLSafetyError, match="not allowed"):
+            asyncio.run(
+                ts.call_tool(
+                    "query",
+                    {"sql": "SELECT id FROM secret_data"},
+                    ctx=MagicMock(spec=RunContext),
+                    tool=MagicMock(spec=ToolsetTool),
+                )
+            )
+
+        engine.execute_query.assert_not_called()
+
+    def test_blocks_datafusion_table_functions(self):
+        cfg = _make_mock_datasource_config("sales_data")
+        ts = DataFusionToolset([cfg])
+        engine = _make_mock_engine()
+        ts._engine = engine
+
+        with pytest.raises(SQLSafetyError, match="read_csv"):
+            asyncio.run(
+                ts.call_tool(
+                    "query",
+                    {"sql": "SELECT * FROM read_csv('file:///etc/passwd')"},
+                    ctx=MagicMock(spec=RunContext),
+                    tool=MagicMock(spec=ToolsetTool),
+                )
+            )
+
+        engine.execute_query.assert_not_called()
+
     def test_allows_create_table_when_writes_enabled(self):
         cfg = _make_mock_datasource_config()
         ts = DataFusionToolset([cfg], allow_writes=True)

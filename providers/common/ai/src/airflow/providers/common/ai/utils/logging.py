@@ -21,12 +21,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from airflow.providers.common.ai.hooks.base_ai import AgentRunResult
-from airflow.providers.common.ai.toolsets.logging import LoggingToolset
-
 if TYPE_CHECKING:
-    from pydantic_ai.toolsets.abstract import AbstractToolset
-
+    from airflow.providers.common.ai.hooks.base_ai import AgentRunResult
     from airflow.sdk.types import Logger
 
 _MAX_OUTPUT_LEN = 500
@@ -70,11 +66,3 @@ def _log_output_debug(logger: Logger | logging.Logger, output: Any) -> None:
     if len(text) > _MAX_OUTPUT_LEN:
         text = text[:_MAX_OUTPUT_LEN] + "..."
     logger.debug("Output: %s", text)
-
-
-def wrap_toolsets_for_logging(
-    toolsets: list[AbstractToolset[Any]],
-    logger: Logger | logging.Logger,
-) -> list[AbstractToolset[Any]]:
-    """Wrap each toolset in a LoggingToolset."""
-    return [LoggingToolset(wrapped=ts, logger=logger) for ts in toolsets]

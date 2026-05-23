@@ -20,7 +20,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from airflow.providers.common.ai.hooks.base_ai import AgentRunResult, AgentUsage, BaseAIHook
+from airflow.providers.common.ai.hooks.base_ai import (
+    AgentRunRequest,
+    AgentRunResult,
+    AgentUsage,
+    BaseAIHook,
+    BaseToolset,
+    DurableContext,
+    DurableStats,
+    ToolSpec,
+)
 from airflow.providers.common.compat.sdk import BaseHook
 
 
@@ -58,3 +67,159 @@ class TestAgentRunResult:
         assert result.model_name == "test-model"
         assert result.usage == usage
         assert result.tool_names == ["query"]
+
+    def test_durable_stats_defaults_to_none(self):
+        result = AgentRunResult(output="x")
+        assert result.durable_stats is None
+
+
+class TestToolSpec:
+    def test_fields(self):
+        fn = lambda: "result"  # noqa: E731
+        spec = ToolSpec(
+            name="my_tool",
+            description="Does something.",
+            parameters={"type": "object", "properties": {}},
+            fn=fn,
+        )
+        assert spec.name == "my_tool"
+        assert spec.description == "Does something."
+        assert spec.fn is fn
+
+
+class TestDurableContext:
+    def test_fields(self):
+        ctx = DurableContext(dag_id="d", task_id="t", run_id="r", map_index=2)
+        assert ctx.dag_id == "d"
+        assert ctx.map_index == 2
+
+    def test_map_index_defaults_to_minus_one(self):
+        ctx = DurableContext(dag_id="d", task_id="t", run_id="r")
+        assert ctx.map_index == -1
+
+
+class TestDurableStats:
+    def test_defaults(self):
+        s = DurableStats()
+        assert s.replayed_model == 0
+        assert s.replayed_tool == 0
+        assert s.cached_model == 0
+        assert s.cached_tool == 0
+
+
+class TestAgentRunRequest:
+    def test_required_prompt(self):
+        req = AgentRunRequest(prompt="hello")
+        assert req.prompt == "hello"
+        assert req.output_type is str
+        assert req.enable_tool_logging is True
+        assert req.toolsets is None
+        assert req.durable_context is None
+
+    def test_all_fields(self):
+        ctx = DurableContext(dag_id="d", task_id="t", run_id="r")
+        req = AgentRunRequest(
+            prompt="test",
+            output_type=dict,
+            instructions="Be helpful.",
+            toolsets=[MagicMock()],
+            usage_limits=MagicMock(),
+            enable_tool_logging=False,
+            durable_context=ctx,
+            agent_params={"retries": 3},
+        )
+        assert req.instructions == "Be helpful."
+        assert req.enable_tool_logging is False
+        assert req.durable_context is ctx
+
+
+class TestBaseToolset:
+    def test_subclass_must_implement_as_tools(self):
+        with pytest.raises(TypeError):
+            BaseToolset()  # abstract
+
+    def test_concrete_subclass(self):
+        class MyToolset(BaseToolset):
+            def as_tools(self):
+                return []
+
+        ts = MyToolset()
+        assert ts.as_tools() == []
+
+
+class TestBaseAIHookLoggedCallable:
+    def test_logged_callable_preserves_result(self):
+        import logging
+
+        logger = MagicMock(spec=logging.Logger)
+        logger.isEnabledFor.return_value = True
+
+        def adder(x: int, y: int) -> int:
+            return x + y
+
+        wrapped = BaseAIHook._logged_callable(adder, logger)
+        result = wrapped(x=1, y=2)
+
+        assert result == 3
+        logger.info.assert_called()
+
+    def test_logged_callable_preserves_signature(self):
+        import inspect
+
+        def greet(name: str) -> str:
+            """Say hello."""
+            return f"Hello {name}"
+
+        mock_log = MagicMock()
+        mock_log.isEnabledFor.return_value = False
+        wrapped = BaseAIHook._logged_callable(greet, mock_log)
+
+        sig = inspect.signature(wrapped)
+        assert "name" in sig.parameters
+
+    def test_logged_callable_re_raises_exceptions(self):
+        import logging
+
+        logger = MagicMock(spec=logging.Logger)
+
+        def boom(**kwargs):
+            raise RuntimeError("fail")
+
+        wrapped = BaseAIHook._logged_callable(boom, logger)
+        with pytest.raises(RuntimeError, match="fail"):
+            wrapped()
+
+
+class TestBaseAIHookCachedCallable:
+    def test_cached_callable_returns_cached_result_on_hit(self):
+        storage = MagicMock()
+        counter = MagicMock()
+        counter.next_step.return_value = 0
+        storage.load_tool_result.return_value = (True, "cached_value")
+
+        def fn(**kwargs):
+            return "fresh_value"
+
+        wrapped = BaseAIHook._cached_callable(fn, storage, counter)
+        result = wrapped()
+
+        assert result == "cached_value"
+        counter.next_step.assert_called_once()
+        storage.load_tool_result.assert_called_once_with("tool_step_0")
+        storage.save_tool_result.assert_not_called()
+
+    def test_cached_callable_executes_and_caches_on_miss(self):
+        storage = MagicMock()
+        counter = MagicMock()
+        counter.next_step.return_value = 1
+        storage.load_tool_result.return_value = (False, None)
+
+        def fn(**kwargs):
+            return "fresh_value"
+
+        wrapped = BaseAIHook._cached_callable(fn, storage, counter)
+        result = wrapped()
+
+        assert result == "fresh_value"
+        storage.save_tool_result.assert_called_once_with("tool_step_1", "fresh_value")
+        assert counter.cached_tool == 1

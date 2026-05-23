@@ -26,9 +26,9 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from airflow.providers.common.ai.hooks.base_ai import BaseAIHook
+from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest, BaseAIHook, DurableContext
 from airflow.providers.common.ai.mixins.hitl_review import HITLReviewMixin
-from airflow.providers.common.ai.utils.logging import log_run_summary, wrap_toolsets_for_logging
+from airflow.providers.common.ai.utils.logging import log_run_summary
 from airflow.providers.common.compat.sdk import (
     AirflowOptionalProviderFeatureException,
     BaseOperator,
@@ -38,12 +38,6 @@ from airflow.providers.common.compat.sdk import (
 from airflow.providers.common.compat.version_compat import AIRFLOW_V_3_1_PLUS
 
 if TYPE_CHECKING:
-    from pydantic_ai import Agent
-    from pydantic_ai.toolsets.abstract import AbstractToolset
-    from pydantic_ai.usage import UsageLimits
-
-    from airflow.providers.common.ai.durable.step_counter import DurableStepCounter
-    from airflow.providers.common.ai.durable.storage import DurableStorage
     from airflow.providers.common.compat.sdk import TaskInstanceKey
     from airflow.sdk import Context
 
@@ -90,7 +84,8 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
     multi-turn loop, and returns a final answer.
 
     The agent backend is selected by the connection ``conn_type`` (for example
-    ``pydanticai``, ``pydanticai-bedrock``, or ``pydanticai-azure``).
+    ``pydanticai``, ``pydanticai-bedrock``, ``pydanticai-azure``, or
+    ``strands-bedrock``).
 
     :param prompt: The prompt to send to the agent.
     :param llm_conn_id: Connection ID for the agent provider.
@@ -99,23 +94,23 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
     :param system_prompt: System-level instructions for the agent.
     :param output_type: Expected output type. Default ``str``. Set to a Pydantic
         ``BaseModel`` subclass for structured output.
-    :param toolsets: List of pydantic-ai toolsets the agent can use
-        (e.g. ``SQLToolset``, ``HookToolset``).
-    :param enable_tool_logging: When ``True`` (default), wraps each toolset in a
-        ``LoggingToolset`` that logs tool calls with timing at INFO level and
-        arguments at DEBUG level. Set to ``False`` to disable.
-    :param agent_params: Additional keyword arguments passed to the pydantic-ai
-        ``Agent`` constructor (e.g. ``retries``, ``model_settings``).
-    :param usage_limits: Optional pydantic-ai
-        :class:`~pydantic_ai.usage.UsageLimits` enforced on every agent run
-        (initial run, durable replay, and HITL regeneration). Pass
-        ``UsageLimits(request_limit=..., total_tokens_limit=..., tool_calls_limit=..., ...)``
-        to fail the task when the agent exceeds the configured token, request,
-        or tool budget. ``None`` (default) means no enforcement.
+    :param toolsets: List of :class:`~airflow.providers.common.ai.hooks.base_ai.BaseToolset`
+        instances the agent can use (e.g. ``SQLToolset``, ``HookToolset``).
+        Framework-specific toolsets (e.g. pydantic-ai ``MCPToolset``) can be
+        passed via ``agent_params`` as an escape hatch.
+    :param enable_tool_logging: When ``True`` (default), logs each tool call
+        with timing at INFO level and arguments at DEBUG level.
+    :param agent_params: Additional keyword arguments forwarded to the underlying
+        agent constructor. Use this for framework-specific options that have no
+        generic equivalent (e.g. pydantic-ai ``retries``, ``model_settings``,
+        or ``toolsets`` for :class:`~airflow.providers.common.ai.toolsets.mcp.MCPToolset`).
+    :param usage_limits: Backend-specific usage limits. Ignored for backends that
+        do not support them (see :attr:`~BaseAIHook.supports_usage_limits`).
     :param durable: When ``True``, enables step-level caching of model
-        responses and tool results for durable execution.  On retry, cached
-        steps are replayed instead of re-executing.  Default ``False``.
+        responses and tool results for durable execution. On retry, cached
+        steps are replayed instead of re-executing. Default ``False``.
         Requires ``[common.ai] durable_cache_path`` to be set.
+        Only supported by hooks where :attr:`~BaseAIHook.supports_durable` is ``True``.
 
     **HITL Review parameters** (requires the ``hitl_review`` plugin):
 
@@ -154,10 +149,10 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
         model_id: str | None = None,
         system_prompt: str = "",
         output_type: type = str,
-        toolsets: list[AbstractToolset] | None = None,
+        toolsets: list[Any] | None = None,
         enable_tool_logging: bool = True,
         agent_params: dict[str, Any] | None = None,
-        usage_limits: UsageLimits | None = None,
+        usage_limits: Any = None,
         durable: bool = False,
         # Agent feedback parameters
         enable_hitl_review: bool = False,
@@ -208,7 +203,7 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
             raise ValueError(
                 f"toolsets are not supported for connection {self.llm_conn_id!r} "
                 f"(conn_type resolves to {type(hook).__name__}). "
-                "Use a pydantic-ai connection type (e.g. pydanticai, pydanticai-bedrock)."
+                "Use a connection type that supports toolsets (e.g. pydanticai, strands-bedrock)."
             )
         if self.usage_limits is not None and not hook.supports_usage_limits:
             raise ValueError(
@@ -217,85 +212,39 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
             )
         if self.durable and not hook.supports_durable:
             raise ValueError(
-                f"durable=True requires a pydantic-ai connection type; got {type(hook).__name__} "
-                f"for connection {self.llm_conn_id!r}."
+                f"durable=True requires a hook with supports_durable=True; "
+                f"got {type(hook).__name__} for connection {self.llm_conn_id!r}."
             )
-
-    def _build_agent(self) -> Agent[None, Any]:
-        """Build and return a pydantic-ai Agent from the operator's config."""
-        extra_kwargs = dict(self.agent_params)
-        if self.toolsets:
-            toolsets = self.toolsets
-            if self.durable and self._durable_storage is not None and self._durable_counter is not None:
-                toolsets = self._build_durable_toolsets(
-                    toolsets, self._durable_storage, self._durable_counter
-                )
-            if self.enable_tool_logging:
-                toolsets = wrap_toolsets_for_logging(toolsets, self.log)
-            extra_kwargs["toolsets"] = toolsets
-        return self.llm_hook.create_agent(
-            output_type=self.output_type,
-            instructions=self.system_prompt,
-            **extra_kwargs,
-        )
-
-    def _build_durable_toolsets(
-        self, toolsets: list[AbstractToolset], storage: DurableStorage, counter: DurableStepCounter
-    ) -> list[AbstractToolset]:
-        """Wrap each toolset with CachingToolset for durable execution."""
-        from airflow.providers.common.ai.durable.caching_toolset import CachingToolset
-
-        return [CachingToolset(wrapped=ts, storage=storage, counter=counter) for ts in toolsets]
 
     def execute(self, context: Context) -> Any:
         self._validate_hook_capabilities()
 
-        self._durable_storage = None
-        self._durable_counter = None
-
+        durable_context: DurableContext | None = None
         if self.durable:
-            from airflow.providers.common.ai.durable.step_counter import DurableStepCounter
-            from airflow.providers.common.ai.durable.storage import DurableStorage
-
             ti = context["task_instance"]
-            self._durable_storage = DurableStorage(
+            durable_context = DurableContext(
                 dag_id=ti.dag_id,
                 task_id=ti.task_id,
                 run_id=ti.run_id,
                 map_index=ti.map_index if ti.map_index is not None else -1,
             )
-            self._durable_counter = DurableStepCounter()
 
-        agent = self._build_agent()
+        request = AgentRunRequest(
+            prompt=self.prompt,
+            output_type=self.output_type,
+            instructions=self.system_prompt,
+            toolsets=self.toolsets,
+            usage_limits=self.usage_limits,
+            enable_tool_logging=self.enable_tool_logging,
+            durable_context=durable_context,
+            agent_params=self.agent_params,
+        )
 
-        storage = self._durable_storage
-        counter = self._durable_counter
-        if self.durable and storage is not None and counter is not None:
-            from pydantic_ai.models import infer_model
-
-            from airflow.providers.common.ai.durable.caching_model import CachingModel
-
-            if agent.model is None:
-                raise ValueError("Agent model must be set when durable=True")
-            resolved_model = infer_model(agent.model)
-            caching_model = CachingModel(resolved_model, storage=storage, counter=counter)
-            with agent.override(model=caching_model):
-                run_result = self.llm_hook.run_agent(
-                    agent,
-                    prompt=self.prompt,
-                    usage_limits=self.usage_limits,
-                )
-        else:
-            run_result = self.llm_hook.run_agent(
-                agent,
-                prompt=self.prompt,
-                usage_limits=self.usage_limits,
-            )
-
+        run_result = self.llm_hook.execute_agent(request)
         log_run_summary(self.log, run_result)
 
-        if self._durable_counter is not None:
-            c = self._durable_counter
+        if run_result.durable_stats is not None:
+            c = run_result.durable_stats
             replayed = c.replayed_model + c.replayed_tool
             cached = c.cached_model + c.cached_tool
             if replayed:
@@ -310,9 +259,6 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
                     c.cached_tool,
                 )
 
-        if self._durable_storage is not None:
-            self._durable_storage.cleanup()
-
         output = run_result.output
 
         if self.enable_hitl_review:
@@ -321,7 +267,6 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
                 output,
                 message_history=run_result.message_history,
             )
-            # Deserialize back to dict
             try:
                 return json.loads(result_str)
             except (ValueError, TypeError):
@@ -333,13 +278,17 @@ class AgentOperator(BaseOperator, HITLReviewMixin):
 
     def regenerate_with_feedback(self, *, feedback: str, message_history: Any) -> tuple[str, Any]:
         """Re-run the agent with *feedback* appended to the conversation history."""
-        agent = self._build_agent()
-        run_result = self.llm_hook.run_agent(
-            agent,
+        request = AgentRunRequest(
             prompt=feedback,
-            message_history=message_history,
+            output_type=self.output_type,
+            instructions=self.system_prompt,
+            toolsets=self.toolsets,
             usage_limits=self.usage_limits,
+            enable_tool_logging=self.enable_tool_logging,
+            message_history=message_history,
+            agent_params=self.agent_params,
         )
+        run_result = self.llm_hook.execute_agent(request)
         log_run_summary(self.log, run_result)
 
         output = run_result.output

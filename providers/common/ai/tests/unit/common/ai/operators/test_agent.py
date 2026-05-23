@@ -21,11 +21,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-from pydantic_ai.usage import UsageLimits
 
-from airflow.providers.common.ai.hooks.base_ai import AgentRunResult, AgentUsage, BaseAIHook
+from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest, AgentRunResult, AgentUsage, BaseAIHook
 from airflow.providers.common.ai.operators.agent import AgentOperator, HITLReviewLink
-from airflow.providers.common.ai.toolsets.logging import LoggingToolset
 
 from tests_common.test_utils.version_compat import AIRFLOW_V_3_1_PLUS
 
@@ -40,15 +38,13 @@ def _make_agent_run_result(output, *, message_history=None) -> AgentRunResult:
 
 
 def _make_mock_hook(output, *, message_history=None):
-    """Return (mock_hook, mock_agent) wired for AgentOperator.execute."""
+    """Return a mock hook wired for AgentOperator.execute (uses execute_agent)."""
     mock_hook = MagicMock(spec=BaseAIHook)
     mock_hook.supports_toolsets = True
     mock_hook.supports_durable = True
     mock_hook.supports_usage_limits = True
-    mock_agent = MagicMock()
-    mock_hook.create_agent.return_value = mock_agent
-    mock_hook.run_agent.return_value = _make_agent_run_result(output, message_history=message_history)
-    return mock_hook, mock_agent
+    mock_hook.execute_agent.return_value = _make_agent_run_result(output, message_history=message_history)
+    return mock_hook
 
 
 class TestAgentOperatorHookCapabilities:
@@ -103,9 +99,11 @@ class TestAgentOperatorTemplateFields:
 
 class TestAgentOperatorExecute:
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_execute_forwards_usage_limits_to_run_sync(self, mock_hook_cls):
-        """``usage_limits`` is forwarded to ``run_agent`` on the non-durable path."""
-        mock_hook, mock_agent = _make_mock_hook("ok")
+    def test_execute_forwards_usage_limits_in_request(self, mock_hook_cls):
+        """``usage_limits`` is forwarded inside AgentRunRequest to ``execute_agent``."""
+        from pydantic_ai.usage import UsageLimits
+
+        mock_hook = _make_mock_hook("ok")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         limits = UsageLimits(request_limit=3, tool_calls_limit=5)
@@ -117,33 +115,12 @@ class TestAgentOperatorExecute:
         )
         op.execute(context=MagicMock())
 
-        mock_hook.run_agent.assert_called_once_with(mock_agent, prompt="run", usage_limits=limits)
-
-    @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_regenerate_with_feedback_forwards_usage_limits(self, mock_hook_cls):
-        """``usage_limits`` is also forwarded by ``regenerate_with_feedback``."""
-        mock_hook, mock_agent = _make_mock_hook("revised")
-        mock_hook_cls.get_agent_hook.return_value = mock_hook
-
-        limits = UsageLimits(request_limit=1)
-        op = AgentOperator(
-            task_id="test",
-            prompt="run",
-            llm_conn_id="my_llm",
-            usage_limits=limits,
-        )
-        op.regenerate_with_feedback(feedback="Add detail", message_history=[])
-
-        mock_hook.run_agent.assert_called_once_with(
-            mock_agent,
-            prompt="Add detail",
-            message_history=[],
-            usage_limits=limits,
-        )
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.usage_limits is limits
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_execute_creates_agent_from_hook(self, mock_hook_cls):
-        mock_hook, mock_agent = _make_mock_hook("The answer is 42.")
+        mock_hook = _make_mock_hook("The answer is 42.")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -156,15 +133,15 @@ class TestAgentOperatorExecute:
 
         assert result == "The answer is 42."
         mock_hook_cls.get_agent_hook.assert_called_once_with("my_llm", hook_params={"model_id": None})
-        mock_hook.create_agent.assert_called_once_with(output_type=str, instructions="You are helpful.")
-        mock_hook.run_agent.assert_called_once_with(
-            mock_agent, prompt="What is the answer?", usage_limits=None
-        )
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.prompt == "What is the answer?"
+        assert request.instructions == "You are helpful."
+        assert request.output_type is str
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_execute_passes_toolsets_in_agent_kwargs(self, mock_hook_cls):
-        """Toolsets are passed through to the agent constructor."""
-        mock_hook, _ = _make_mock_hook("done")
+    def test_execute_passes_toolsets_in_request(self, mock_hook_cls):
+        """Toolsets are passed in AgentRunRequest.toolsets."""
+        mock_hook = _make_mock_hook("done")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         mock_toolset = MagicMock()
@@ -176,16 +153,14 @@ class TestAgentOperatorExecute:
         )
         op.execute(context=MagicMock())
 
-        create_call = mock_hook.create_agent.call_args
-        passed_toolsets = create_call[1]["toolsets"]
-        assert len(passed_toolsets) == 1
-        assert isinstance(passed_toolsets[0], LoggingToolset)
-        assert passed_toolsets[0].wrapped is mock_toolset
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.toolsets == [mock_toolset]
+        assert request.enable_tool_logging is True
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_enable_tool_logging_false_skips_wrapping(self, mock_hook_cls):
-        """enable_tool_logging=False passes toolsets through unwrapped."""
-        mock_hook, _ = _make_mock_hook("done")
+    def test_enable_tool_logging_false_forwarded_in_request(self, mock_hook_cls):
+        """enable_tool_logging=False is forwarded in AgentRunRequest."""
+        mock_hook = _make_mock_hook("done")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         mock_toolset = MagicMock()
@@ -198,13 +173,13 @@ class TestAgentOperatorExecute:
         )
         op.execute(context=MagicMock())
 
-        create_call = mock_hook.create_agent.call_args
-        assert create_call[1]["toolsets"] == [mock_toolset]
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.enable_tool_logging is False
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_execute_passes_agent_params(self, mock_hook_cls):
-        """agent_params are unpacked into create_agent."""
-        mock_hook, _ = _make_mock_hook("ok")
+        """agent_params are forwarded in AgentRunRequest."""
+        mock_hook = _make_mock_hook("ok")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -215,9 +190,9 @@ class TestAgentOperatorExecute:
         )
         op.execute(context=MagicMock())
 
-        create_call = mock_hook.create_agent.call_args
-        assert create_call[1]["retries"] == 3
-        assert create_call[1]["model_settings"] == {"temperature": 0}
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.agent_params["retries"] == 3
+        assert request.agent_params["model_settings"] == {"temperature": 0}
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_execute_structured_output(self, mock_hook_cls):
@@ -227,7 +202,7 @@ class TestAgentOperatorExecute:
             text: str
             score: float
 
-        mock_hook, _ = _make_mock_hook(Summary(text="Great", score=0.95))
+        mock_hook = _make_mock_hook(Summary(text="Great", score=0.95))
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -243,7 +218,7 @@ class TestAgentOperatorExecute:
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_execute_with_model_id(self, mock_hook_cls):
         """model_id is passed to the agent hook."""
-        mock_hook, _ = _make_mock_hook("ok")
+        mock_hook = _make_mock_hook("ok")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -266,7 +241,7 @@ class TestAgentOperatorExecute:
     def test_execute_with_enable_hitl_review_delegates_to_run_hitl_review(self, mock_hook_cls, mock_run_hitl):
         """When enable_hitl_review=True, execute delegates to run_hitl_review with output and message_history."""
         msg_history = [MagicMock()]
-        mock_hook, _ = _make_mock_hook("Initial output", message_history=msg_history)
+        mock_hook = _make_mock_hook("Initial output", message_history=msg_history)
         mock_hook_cls.get_agent_hook.return_value = mock_hook
         mock_run_hitl.return_value = "Approved output"
 
@@ -295,9 +270,8 @@ class TestAgentOperatorExecute:
             text: str
             score: float
 
-        mock_hook, _ = _make_mock_hook(Summary(text="Approved summary", score=0.9))
+        mock_hook = _make_mock_hook(Summary(text="Approved summary", score=0.9))
         mock_hook_cls.get_agent_hook.return_value = mock_hook
-        # run_hitl_review returns JSON string (as stored in session.current_output)
         mock_run_hitl.return_value = '{"text": "Approved summary", "score": 0.9}'
 
         op = AgentOperator(
@@ -320,7 +294,7 @@ class TestAgentOperatorExecute:
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_execute_with_hitl_returns_string_unchanged(self, mock_hook_cls, mock_run_hitl):
         """When enable_hitl_review=True and output_type is str, execute returns string as-is."""
-        mock_hook, _ = _make_mock_hook("Initial output")
+        mock_hook = _make_mock_hook("Initial output")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
         mock_run_hitl.return_value = "Approved output"
 
@@ -346,7 +320,7 @@ class TestAgentOperatorExecute:
         """When run_hitl_review raises HITLMaxIterationsError, execute propagates it."""
         from airflow.providers.common.ai.exceptions import HITLMaxIterationsError
 
-        mock_hook, _ = _make_mock_hook("Initial output")
+        mock_hook = _make_mock_hook("Initial output")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
         mock_run_hitl.side_effect = HITLMaxIterationsError("Task exceeded max iterations.")
 
@@ -412,11 +386,11 @@ class TestHITLReviewLink:
 )
 class TestAgentOperatorRegenerateWithFeedback:
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_regenerate_with_feedback_calls_agent_with_feedback_and_history(self, mock_hook_cls):
-        """regenerate_with_feedback builds agent and calls run_agent with feedback and message_history."""
+    def test_regenerate_with_feedback_calls_execute_agent_with_history(self, mock_hook_cls):
+        """regenerate_with_feedback builds AgentRunRequest with feedback and message_history."""
         msg_history = [MagicMock()]
         new_history = msg_history + [MagicMock()]
-        mock_hook, mock_agent = _make_mock_hook("Revised output", message_history=new_history)
+        mock_hook = _make_mock_hook("Revised output", message_history=new_history)
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -431,12 +405,9 @@ class TestAgentOperatorRegenerateWithFeedback:
 
         assert output == "Revised output"
         assert returned_history == new_history
-        mock_hook.run_agent.assert_called_once_with(
-            mock_agent,
-            prompt="Add more detail",
-            message_history=msg_history,
-            usage_limits=None,
-        )
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.prompt == "Add more detail"
+        assert request.message_history == msg_history
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
     def test_regenerate_with_feedback_serializes_base_model_output(self, mock_hook_cls):
@@ -445,7 +416,7 @@ class TestAgentOperatorRegenerateWithFeedback:
         class Summary(BaseModel):
             text: str
 
-        mock_hook, _ = _make_mock_hook(Summary(text="Revised"))
+        mock_hook = _make_mock_hook(Summary(text="Revised"))
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(
@@ -471,49 +442,37 @@ class TestAgentOperatorDurable:
         op = AgentOperator(task_id="test", prompt="test", llm_conn_id="my_llm")
         assert op.durable is False
 
-    @patch("pydantic_ai.models.wrapper.infer_model", side_effect=lambda m: m)
-    @patch("pydantic_ai.models.infer_model", autospec=True)
-    @patch("airflow.providers.common.ai.durable.storage._get_base_path")
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_execute_durable_wraps_model_and_cleans_up(
-        self, mock_hook_cls, mock_base_path, mock_infer, _, tmp_path
-    ):
-        """durable=True wraps model with CachingModel and cleans up on success."""
-        from airflow.sdk import ObjectStoragePath
+    def test_execute_durable_passes_durable_context_in_request(self, mock_hook_cls):
+        """durable=True populates DurableContext in AgentRunRequest."""
+        from airflow.providers.common.ai.hooks.base_ai import DurableContext
 
-        mock_base_path.return_value = ObjectStoragePath(f"file://{tmp_path.as_posix()}")
-
-        mock_hook, mock_agent = _make_mock_hook("ok")
-        mock_agent.model = "test-model"
-        mock_agent.override = MagicMock()
-        mock_agent.override.return_value.__enter__ = MagicMock(return_value=None)
-        mock_agent.override.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hook = _make_mock_hook("ok")
+        mock_hook.supports_durable = True
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
-        mock_resolved = MagicMock()
-        mock_infer.return_value = mock_resolved
-
+        ti = MagicMock(dag_id="d", task_id="t", run_id="r", map_index=-1)
         context = MagicMock()
-        context.__getitem__ = MagicMock(
-            return_value=MagicMock(dag_id="d", task_id="t", run_id="r", map_index=-1)
-        )
+        context.__getitem__ = MagicMock(return_value=ti)
 
         op = AgentOperator(task_id="test", prompt="test", llm_conn_id="my_llm", durable=True)
-        result = op.execute(context=context)
+        op.execute(context=context)
 
-        assert result == "ok"
-        mock_agent.override.assert_called_once()
-        override_kwargs = mock_agent.override.call_args[1]
-        assert "model" in override_kwargs
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert isinstance(request.durable_context, DurableContext)
+        assert request.durable_context.dag_id == "d"
+        assert request.durable_context.task_id == "t"
+        assert request.durable_context.run_id == "r"
+        assert request.durable_context.map_index == -1
 
     @patch("airflow.providers.common.ai.operators.agent.BaseAIHook", autospec=True)
-    def test_execute_non_durable_does_not_wrap(self, mock_hook_cls):
-        """Default (durable=False) does not use override."""
-        mock_hook, mock_agent = _make_mock_hook("ok")
+    def test_execute_non_durable_has_no_durable_context(self, mock_hook_cls):
+        """Default (durable=False) passes durable_context=None in request."""
+        mock_hook = _make_mock_hook("ok")
         mock_hook_cls.get_agent_hook.return_value = mock_hook
 
         op = AgentOperator(task_id="test", prompt="test", llm_conn_id="my_llm")
         op.execute(context=MagicMock())
 
-        mock_hook.run_agent.assert_called_once_with(mock_agent, prompt="test", usage_limits=None)
-        mock_agent.override.assert_not_called()
+        request: AgentRunRequest = mock_hook.execute_agent.call_args[0][0]
+        assert request.durable_context is None

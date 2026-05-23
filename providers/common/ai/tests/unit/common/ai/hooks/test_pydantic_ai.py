@@ -667,6 +667,8 @@ class TestPydanticAIVertexHook:
 
 class TestPydanticAIHookRunAgent:
     def test_run_agent_returns_agent_run_result(self):
+        from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest
+
         hook = PydanticAIHook()
         mock_agent = MagicMock()
         mock_usage = MagicMock(requests=1, tool_calls=0, input_tokens=5, output_tokens=10, total_tokens=15)
@@ -677,14 +679,16 @@ class TestPydanticAIHookRunAgent:
         mock_result.all_messages.return_value = []
         mock_agent.run_sync.return_value = mock_result
 
-        run_result = hook.run_agent(mock_agent, prompt="hello")
+        run_result = hook.run_agent(mock_agent, AgentRunRequest(prompt="hello"))
 
         assert isinstance(run_result, AgentRunResult)
         assert run_result.output == "done"
         assert run_result.model_name == "openai:gpt-5"
-        mock_agent.run_sync.assert_called_once_with("hello", usage_limits=None)
+        mock_agent.run_sync.assert_called_once_with("hello")
 
     def test_run_agent_forwards_message_history_and_usage_limits(self):
+        from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest
+
         hook = PydanticAIHook()
         mock_agent = MagicMock()
         mock_result = MagicMock()
@@ -698,6 +702,81 @@ class TestPydanticAIHookRunAgent:
         limits = MagicMock()
         history = ["prior"]
 
-        hook.run_agent(mock_agent, prompt="more", message_history=history, usage_limits=limits)
+        hook.run_agent(
+            mock_agent, AgentRunRequest(prompt="more", message_history=history, usage_limits=limits)
+        )
 
         mock_agent.run_sync.assert_called_once_with("more", message_history=history, usage_limits=limits)
+
+
+class TestPydanticAIHookSpecToNative:
+    def test_spec_to_native_returns_pydantic_ai_tool(self):
+        """_spec_to_native wraps the callable in a pydantic-ai Tool."""
+        from pydantic_ai.tools import Tool
+
+        from airflow.providers.common.ai.hooks.base_ai import ToolSpec
+
+        def my_fn(x: int) -> str:
+            return str(x)
+
+        spec = ToolSpec(
+            name="my_fn",
+            description="A test tool.",
+            parameters={"type": "object", "properties": {"x": {"type": "integer"}}, "required": ["x"]},
+            fn=my_fn,
+        )
+
+        hook = PydanticAIHook.__new__(PydanticAIHook)
+        native = hook._spec_to_native(spec)
+
+        assert isinstance(native, Tool)
+
+
+class TestPydanticAIHookExecuteAgent:
+    @patch("airflow.providers.common.ai.hooks.pydantic_ai.PydanticAIHook.run_agent")
+    @patch("airflow.providers.common.ai.hooks.pydantic_ai.PydanticAIHook.create_agent")
+    def test_execute_agent_calls_create_and_run(self, mock_create, mock_run):
+        """execute_agent delegates to create_agent and run_agent."""
+        from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest, AgentRunResult, AgentUsage
+
+        mock_agent = MagicMock()
+        mock_create.return_value = mock_agent
+        mock_run.return_value = AgentRunResult(
+            output="hello",
+            model_name="test",
+            usage=AgentUsage(),
+        )
+
+        hook = PydanticAIHook.__new__(PydanticAIHook)
+        request = AgentRunRequest(
+            prompt="Say hello",
+            instructions="Be concise.",
+            output_type=str,
+        )
+        result = hook.execute_agent(request)
+
+        assert result.output == "hello"
+        mock_create.assert_called_once_with(request)
+        mock_run.assert_called_once_with(mock_agent, request)
+
+    @patch("airflow.providers.common.ai.hooks.pydantic_ai.PydanticAIHook.run_agent")
+    @patch("airflow.providers.common.ai.hooks.pydantic_ai.PydanticAIHook.create_agent")
+    def test_execute_agent_passes_request_to_create_and_run(self, mock_create, mock_run):
+        """execute_agent passes the full request to create_agent and run_agent."""
+        from airflow.providers.common.ai.hooks.base_ai import AgentRunRequest, AgentRunResult, AgentUsage
+
+        mock_agent = MagicMock()
+        mock_create.return_value = mock_agent
+        mock_run.return_value = AgentRunResult(output="done", usage=AgentUsage())
+
+        mock_toolset = MagicMock()
+        hook = PydanticAIHook.__new__(PydanticAIHook)
+        request = AgentRunRequest(
+            prompt="test",
+            toolsets=[mock_toolset],
+            enable_tool_logging=False,
+        )
+        hook.execute_agent(request)
+
+        mock_create.assert_called_once_with(request)
+        mock_run.assert_called_once_with(mock_agent, request)

@@ -48,6 +48,11 @@ Choosing a hook
        by default). For non-OpenAI vendors, pass a pre-built
        ``BaseEmbedding`` / ``LLM`` instance straight to the operator and
        bypass the hook.
+   * - :class:`~airflow.providers.common.ai.hooks.strands_ai.StrandsBedrockHook`
+     - Used by ``AgentOperator`` when ``conn_type`` is ``strands-bedrock``.
+       Runs multi-turn agents via the Strands Agents SDK on AWS Bedrock.
+       Extend :class:`~airflow.providers.common.ai.hooks.strands_ai.StrandsHook`
+       to use other Strands model backends (Anthropic, LiteLLM, Ollama, etc.).
 
 Hook guides
 -----------

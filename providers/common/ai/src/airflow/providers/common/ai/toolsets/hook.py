@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Generic adapter that exposes Airflow Hook methods as pydantic-ai tools."""
+"""Generic adapter that exposes Airflow Hook methods as LLM tools."""
 
 from __future__ import annotations
 
@@ -22,21 +22,13 @@ import inspect
 import json
 import re
 import types
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
-from pydantic_ai.tools import ToolDefinition
-from pydantic_ai.toolsets.abstract import AbstractToolset, ToolsetTool
-from pydantic_core import SchemaValidator, core_schema
+from airflow.providers.common.ai.hooks.base_ai import BaseToolset, ToolSpec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from pydantic_ai._run_context import RunContext
-
     from airflow.providers.common.compat.sdk import BaseHook
-
-# Single shared validator — accepts any JSON-decoded dict from the LLM.
-_PASSTHROUGH_VALIDATOR = SchemaValidator(core_schema.any_schema())
 
 # Maps Python types to JSON Schema fragments.
 _TYPE_MAP: dict[type, dict[str, Any]] = {
@@ -50,13 +42,13 @@ _TYPE_MAP: dict[type, dict[str, Any]] = {
 }
 
 
-class HookToolset(AbstractToolset[Any]):
+class HookToolset(BaseToolset):
     """
-    Expose selected methods of an Airflow Hook as pydantic-ai tools.
+    Expose selected methods of an Airflow Hook as LLM tools.
 
     This adapter introspects the method signatures and docstrings of the given
-    hook to build :class:`~pydantic_ai.tools.ToolDefinition` objects that an LLM
-    agent can call.
+    hook to build :class:`~airflow.providers.common.ai.hooks.base_ai.ToolSpec`
+    objects that an LLM agent can call.
 
     :param hook: An instantiated Airflow Hook.
     :param allowed_methods: Method names to expose as tools. Required —
@@ -87,14 +79,14 @@ class HookToolset(AbstractToolset[Any]):
         self._hook = hook
         self._allowed_methods = allowed_methods
         self._tool_name_prefix = tool_name_prefix
-        self._id = f"hook-{type(hook).__name__}"
 
-    @property
-    def id(self) -> str:
-        return self._id
+    # ------------------------------------------------------------------
+    # BaseToolset interface
+    # ------------------------------------------------------------------
 
-    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        tools: dict[str, ToolsetTool[Any]] = {}
+    def as_tools(self) -> list[ToolSpec]:
+        """Return each allowed hook method as a :class:`~airflow.providers.common.ai.hooks.base_ai.ToolSpec`."""
+        specs: list[ToolSpec] = []
         for method_name in self._allowed_methods:
             method = getattr(self._hook, method_name)
             tool_name = f"{self._tool_name_prefix}{method_name}" if self._tool_name_prefix else method_name
@@ -108,38 +100,35 @@ class HookToolset(AbstractToolset[Any]):
                 if param_name in json_schema.get("properties", {}):
                     json_schema["properties"][param_name]["description"] = param_desc
 
-            # sequential=True because hook methods perform synchronous I/O
-            # (network calls, DB queries) and should not run concurrently.
-            tool_def = ToolDefinition(
-                name=tool_name,
-                description=description,
-                parameters_json_schema=json_schema,
-                sequential=True,
-            )
-            tools[tool_name] = ToolsetTool(
-                toolset=self,
-                tool_def=tool_def,
-                max_retries=1,
-                args_validator=_PASSTHROUGH_VALIDATOR,
-            )
-        return tools
+            # Build a named callable that serializes the hook method's return value.
+            fn = _make_tool_fn(method, tool_name)
 
-    async def call_tool(
-        self,
-        name: str,
-        tool_args: dict[str, Any],
-        ctx: RunContext[Any],
-        tool: ToolsetTool[Any],
-    ) -> Any:
-        method_name = name.removeprefix(self._tool_name_prefix) if self._tool_name_prefix else name
-        method: Callable[..., Any] = getattr(self._hook, method_name)
-        result = method(**tool_args)
-        return _serialize_for_llm(result)
+            specs.append(
+                ToolSpec(
+                    name=tool_name,
+                    description=description,
+                    parameters=json_schema,
+                    fn=fn,
+                )
+            )
+        return specs
 
 
 # ---------------------------------------------------------------------------
-# Private introspection helpers
+# Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _make_tool_fn(method: Callable[..., Any], tool_name: str) -> Callable[..., Any]:
+    """Return a named callable that invokes *method* and serializes the result."""
+    import functools
+
+    @functools.wraps(method)
+    def tool_fn(*args: Any, **kwargs: Any) -> Any:
+        return _serialize_for_llm(method(*args, **kwargs))
+
+    tool_fn.__name__ = tool_name
+    return tool_fn
 
 
 def _python_type_to_json_schema(annotation: Any) -> dict[str, Any]:

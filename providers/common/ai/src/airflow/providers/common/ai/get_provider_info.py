@@ -65,6 +65,11 @@ def get_provider_info():
                 ],
                 "tags": ["ai"],
             },
+            {
+                "integration-name": "Strands Agents",
+                "external-doc-url": "https://strandsagents.com/",
+                "tags": ["ai"],
+            },
         ],
         "hooks": [
             {
@@ -79,6 +84,10 @@ def get_provider_info():
             {
                 "integration-name": "LlamaIndex",
                 "python-modules": ["airflow.providers.common.ai.hooks.llamaindex"],
+            },
+            {
+                "integration-name": "Strands Agents",
+                "python-modules": ["airflow.providers.common.ai.hooks.strands_ai"],
             },
         ],
         "plugins": [
@@ -102,6 +111,43 @@ def get_provider_info():
             }
         },
         "connection-types": [
+            {
+                "hook-class-name": "airflow.providers.common.ai.hooks.strands_ai.StrandsBedrockHook",
+                "hook-name": "Strands Bedrock",
+                "connection-type": "strands-bedrock",
+                "ui-field-behaviour": {
+                    "hidden-fields": ["schema", "port", "login", "host", "password"],
+                    "relabeling": {},
+                    "placeholders": {},
+                },
+                "conn-fields": {
+                    "model": {
+                        "label": "Model ID",
+                        "description": "Bedrock model identifier (e.g. us.anthropic.claude-opus-4-5-20251101)",
+                        "schema": {"type": ["string", "null"]},
+                    },
+                    "region_name": {
+                        "label": "AWS Region",
+                        "description": "AWS region (e.g. us-east-1). Falls back to AWS_DEFAULT_REGION env var.",
+                        "schema": {"type": ["string", "null"]},
+                    },
+                    "aws_access_key_id": {
+                        "label": "AWS Access Key ID",
+                        "description": "IAM access key. Leave empty to use instance role / environment credential chain.",
+                        "schema": {"type": ["string", "null"]},
+                    },
+                    "aws_secret_access_key": {
+                        "label": "AWS Secret Access Key",
+                        "description": "IAM secret key.",
+                        "schema": {"type": ["string", "null"]},
+                    },
+                    "aws_session_token": {
+                        "label": "AWS Session Token",
+                        "description": "Temporary session token (optional).",
+                        "schema": {"type": ["string", "null"]},
+                    },
+                },
+            },
             {
                 "hook-class-name": "airflow.providers.common.ai.hooks.pydantic_ai.PydanticAIHook",
                 "hook-name": "Pydantic AI",

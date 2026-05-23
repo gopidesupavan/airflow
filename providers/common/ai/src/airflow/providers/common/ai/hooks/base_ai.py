@@ -18,8 +18,12 @@
 
 from __future__ import annotations
 
+import functools
+import json
+import time
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from airflow.providers.common.compat.sdk import BaseHook
@@ -37,9 +41,19 @@ class AgentUsage:
 
 
 @dataclass
+class DurableStats:
+    """Step-level cache statistics from a durable agent run."""
+
+    replayed_model: int = 0
+    replayed_tool: int = 0
+    cached_model: int = 0
+    cached_tool: int = 0
+
+
+@dataclass
 class AgentRunResult:
     """
-    Backend-neutral result from :meth:`BaseAIHook.run_agent`.
+    Backend-neutral result from :meth:`BaseAIHook.execute_agent`.
 
     :param output: Final agent output (``str``, Pydantic model instance, etc.).
     :param message_history: Opaque conversation state for HITL regeneration; only pass back to the
@@ -47,6 +61,7 @@ class AgentRunResult:
     :param model_name: Resolved model identifier, when available.
     :param usage: Usage counters when the backend exposes them.
     :param tool_names: Ordered tool names invoked during the run, when known.
+    :param durable_stats: Durable step-cache statistics, populated when durable execution is enabled.
     """
 
     output: Any
@@ -54,6 +69,83 @@ class AgentRunResult:
     model_name: str | None = None
     usage: AgentUsage | None = None
     tool_names: list[str] | None = None
+    durable_stats: DurableStats | None = None
+
+
+@dataclass
+class ToolSpec:
+    """
+    Framework-neutral tool descriptor.
+
+    Toolsets produce :class:`ToolSpec` objects; each hook converts them to its
+    native tool representation via :meth:`BaseAIHook._spec_to_native`.
+
+    :param name: Tool name exposed to the LLM.
+    :param description: Human-readable description used by the LLM to decide when to call this tool.
+    :param parameters: JSON Schema ``object`` describing the tool's parameters.
+    :param fn: Callable that implements the tool. Must accept keyword arguments matching *parameters*.
+    """
+
+    name: str
+    description: str
+    parameters: dict[str, Any]
+    fn: Callable[..., Any]
+
+
+@dataclass
+class DurableContext:
+    """Framework-neutral identity of the running task, used to locate the durable cache file."""
+
+    dag_id: str
+    task_id: str
+    run_id: str
+    map_index: int = -1
+
+
+@dataclass
+class AgentRunRequest:
+    """
+    Parameter object passed to :meth:`BaseAIHook.execute_agent`.
+
+    Encapsulates everything the hook needs to build and run an agent in a single
+    framework-neutral structure, so that :class:`~airflow.providers.common.ai.operators.agent.AgentOperator`
+    has zero framework-specific imports.
+
+    :param prompt: User prompt for this invocation.
+    :param output_type: Expected structured output type (default: ``str``).
+    :param instructions: System-level instructions for the agent.
+    :param toolsets: List of :class:`BaseToolset` instances the agent may call.
+    :param usage_limits: Backend-specific usage limits; ignored if the hook does not support them.
+    :param message_history: Prior conversation state from a previous :class:`AgentRunResult`.
+    :param enable_tool_logging: When ``True`` (default), wraps each tool callable with a logging shim.
+    :param durable_context: When set, enables step-level durable caching for the run.
+    :param agent_params: Extra keyword arguments forwarded to the underlying agent constructor.
+        Use this escape hatch for framework-specific options (e.g. pydantic-ai ``toolsets``).
+    """
+
+    prompt: str
+    output_type: type[Any] = str
+    instructions: str = ""
+    toolsets: list[Any] | None = None
+    usage_limits: Any = None
+    message_history: Any = None
+    enable_tool_logging: bool = True
+    durable_context: DurableContext | None = None
+    agent_params: dict[str, Any] = field(default_factory=dict)
+
+
+class BaseToolset(metaclass=ABCMeta):
+    """
+    Abstract base for framework-agnostic toolsets.
+
+    Subclasses implement :meth:`as_tools` to return a list of :class:`ToolSpec`
+    objects.  Each hook converts those specs to its native tool representation
+    via :meth:`BaseAIHook._spec_to_native`.
+    """
+
+    @abstractmethod
+    def as_tools(self) -> list[ToolSpec]:
+        """Return the list of tools this toolset exposes."""
 
 
 class BaseAIHook(BaseHook, metaclass=ABCMeta):
@@ -61,10 +153,16 @@ class BaseAIHook(BaseHook, metaclass=ABCMeta):
     Abstract hook for multi-turn LLM agents.
 
     :class:`~airflow.providers.common.ai.operators.agent.AgentOperator` resolves the concrete hook
-    from the Airflow connection ``conn_type`` (for example ``pydanticai`` or ``pydanticai-bedrock``).
+    from the Airflow connection ``conn_type`` (for example ``pydanticai``, ``pydanticai-bedrock``,
+    or ``strands-bedrock``).
 
-    Subclasses implement :meth:`get_conn`, :meth:`create_agent`, and :meth:`run_agent` for their agent
-    runtime.
+    Subclasses implement :meth:`get_model`, :meth:`create_agent`, :meth:`run_agent`, and
+    :meth:`_spec_to_native`. The concrete :meth:`execute_agent` template calls
+    :meth:`create_agent` then :meth:`run_agent`; override it for hooks that need special
+    orchestration (e.g. durable step-caching in :class:`PydanticAIHook`).
+
+    Shared helpers :meth:`_resolve_tools`, :meth:`_logged_callable`, and
+    :meth:`_cached_callable` are provided for all hooks.
     """
 
     conn_name_attr = "llm_conn_id"
@@ -85,44 +183,150 @@ class BaseAIHook(BaseHook, metaclass=ABCMeta):
         if not isinstance(hook, BaseAIHook):
             raise TypeError(
                 f"Connection {conn_id!r} resolved to {type(hook).__name__}, which is not a BaseAIHook. "
-                "Use a connection type registered for agent frameworks (e.g. pydanticai, pydanticai-bedrock)."
+                "Use a connection type registered for agent frameworks (e.g. pydanticai, strands-bedrock)."
             )
         return hook
 
     @abstractmethod
-    def get_conn(self) -> Any:
+    def get_model(self) -> Any:
         """Return the backend model/client used to construct agents."""
 
-    @abstractmethod
-    def create_agent(
-        self,
-        *,
-        output_type: type[Any] = str,
-        instructions: str = "",
-        **agent_kwargs: Any,
-    ) -> Any:
-        """
-        Build an agent instance for this backend.
-
-        :param output_type: Expected structured output type (``str`` or a Pydantic ``BaseModel`` subclass).
-        :param instructions: System-level instructions for the agent.
-        :param agent_kwargs: Backend-specific options (e.g. pydantic-ai ``toolsets``).
-        """
+    def get_conn(self) -> Any:
+        """Return the backend model/client. Delegates to :meth:`get_model`."""
+        return self.get_model()
 
     @abstractmethod
-    def run_agent(
-        self,
-        agent: Any,
-        *,
-        prompt: str,
-        usage_limits: Any = None,
-        message_history: Any = None,
-    ) -> AgentRunResult:
+    def create_agent(self, request: AgentRunRequest) -> Any:
         """
-        Run *agent* with *prompt* and return a normalized :class:`AgentRunResult`.
+        Build (but do not run) the agent described by *request*.
 
-        :param agent: Object returned by :meth:`create_agent`.
-        :param prompt: User prompt for this invocation.
-        :param usage_limits: Backend-specific usage limits (pydantic-ai ``UsageLimits`` only today).
-        :param message_history: Prior conversation state from a previous :class:`AgentRunResult`.
+        Responsible for resolving :attr:`AgentRunRequest.toolsets` via
+        :meth:`_resolve_tools` and constructing the framework-native agent object
+        with the model, tools, instructions, and output type from *request*.
+
+        :param request: All parameters needed to configure the agent.
+        :returns: Framework-native agent object, ready to be passed to :meth:`run_agent`.
         """
+
+    @abstractmethod
+    def run_agent(self, agent: Any, request: AgentRunRequest) -> AgentRunResult:
+        """
+        Execute *agent* for *request* and return a normalized :class:`AgentRunResult`.
+
+        :param agent: Framework-native agent produced by :meth:`create_agent`.
+        :param request: The same request used to create the agent (prompt, usage
+            limits, message history, etc.).
+        """
+
+    def execute_agent(self, request: AgentRunRequest) -> AgentRunResult:
+        """
+        Build and run an agent for *request*, returning a normalized :class:`AgentRunResult`.
+
+        Default implementation calls :meth:`create_agent` then :meth:`run_agent`.
+        Override this method in subclasses that need special orchestration — for
+        example, durable step-caching or model-level wrapping.
+
+        :param request: All parameters needed to build and run the agent.
+        """
+        agent = self.create_agent(request)
+        return self.run_agent(agent, request)
+
+    @abstractmethod
+    def _spec_to_native(self, spec: ToolSpec) -> Any:
+        """
+        Convert a :class:`ToolSpec` to the framework's native tool representation.
+
+        Called once per tool inside :meth:`_resolve_tools`. The returned object
+        is collected into a list and passed to the underlying agent constructor.
+
+        :param spec: Universal tool descriptor, with the callable already wrapped
+            by any enabled logging / caching shims.
+        """
+
+    # ------------------------------------------------------------------
+    # Shared tool pipeline
+    # ------------------------------------------------------------------
+
+    def _resolve_tools(
+        self,
+        toolsets: list[Any],
+        enable_logging: bool,
+        storage: Any,
+        counter: Any,
+    ) -> list[Any]:
+        """
+        Convert a list of :class:`BaseToolset` instances into native framework tools.
+
+        Pipeline per tool: *fn* → optional cache wrap → optional log wrap → :meth:`_spec_to_native`.
+
+        :param toolsets: Toolsets with an ``as_tools()`` method.
+        :param enable_logging: When ``True``, wrap each callable with :meth:`_logged_callable`.
+        :param storage: :class:`~airflow.providers.common.ai.durable.storage.DurableStorage` instance,
+            or ``None`` to skip caching.
+        :param counter: :class:`~airflow.providers.common.ai.durable.step_counter.DurableStepCounter`
+            instance, or ``None`` to skip caching.
+        """
+        native: list[Any] = []
+        for ts in toolsets:
+            for spec in ts.as_tools():
+                fn = spec.fn
+                if storage is not None and counter is not None:
+                    fn = self._cached_callable(fn, storage, counter)
+                if enable_logging:
+                    fn = self._logged_callable(fn, self.log)
+                adapted = ToolSpec(
+                    name=spec.name,
+                    description=spec.description,
+                    parameters=spec.parameters,
+                    fn=fn,
+                )
+                native.append(self._spec_to_native(adapted))
+        return native
+
+    @staticmethod
+    def _logged_callable(fn: Callable[..., Any], logger: Any) -> Callable[..., Any]:
+        """Wrap *fn* to log tool name, args, timing, and exceptions."""
+
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            name = fn.__name__
+            logger.info("::group::Tool call: %s", name)
+            if kwargs:
+                logger.debug("Tool args: %s", json.dumps(kwargs, default=str))
+            start = time.monotonic()
+            try:
+                result = fn(*args, **kwargs)
+                elapsed = time.monotonic() - start
+                logger.info("Tool %s returned in %.2fs", name, elapsed)
+                logger.info("::endgroup::")
+                return result
+            except Exception:
+                elapsed = time.monotonic() - start
+                logger.exception("Tool %s failed after %.2fs", name, elapsed)
+                logger.info("::endgroup::")
+                raise
+
+        return wrapper
+
+    @staticmethod
+    def _cached_callable(
+        fn: Callable[..., Any],
+        storage: Any,
+        counter: Any,
+    ) -> Callable[..., Any]:
+        """Wrap *fn* to cache its result in *storage* using a monotonic step counter."""
+
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            step = counter.next_step()
+            key = f"tool_step_{step}"
+            found, cached = storage.load_tool_result(key)
+            if found:
+                counter.replayed_tool += 1
+                return cached
+            result = fn(*args, **kwargs)
+            storage.save_tool_result(key, result)
+            counter.cached_tool += 1
+            return result
+
+        return wrapper

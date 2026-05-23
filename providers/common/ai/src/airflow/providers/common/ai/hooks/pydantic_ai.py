@@ -16,13 +16,19 @@
 # under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic_ai import Agent
 from pydantic_ai.models import infer_model
 from pydantic_ai.providers import infer_provider, infer_provider_class
 
-from airflow.providers.common.ai.hooks.base_ai import AgentRunResult, AgentUsage, BaseAIHook
+from airflow.providers.common.ai.hooks.base_ai import (
+    AgentRunRequest,
+    AgentRunResult,
+    AgentUsage,
+    BaseAIHook,
+    ToolSpec,
+)
 
 OutputT = TypeVar("OutputT")
 
@@ -120,7 +126,7 @@ class PydanticAIHook(BaseAIHook):
             kwargs["base_url"] = base_url
         return kwargs
 
-    def get_conn(self) -> Model:
+    def get_model(self) -> Model:
         """
         Return a configured pydantic-ai ``Model``.
 
@@ -175,41 +181,49 @@ class PydanticAIHook(BaseAIHook):
         self._model = infer_model(model_name)
         return self._model
 
-    @overload
-    def create_agent(
-        self, output_type: type[OutputT], *, instructions: str, **agent_kwargs
-    ) -> Agent[None, OutputT]: ...
+    # ------------------------------------------------------------------
+    # BaseAIHook abstract interface
+    # ------------------------------------------------------------------
 
-    @overload
-    def create_agent(self, *, instructions: str, **agent_kwargs) -> Agent[None, str]: ...
+    def _spec_to_native(self, spec: ToolSpec) -> Any:
+        """Convert a :class:`~airflow.providers.common.ai.hooks.base_ai.ToolSpec` to a pydantic-ai ``Tool``."""
+        from pydantic_ai.tools import Tool
 
-    def create_agent(
-        self, output_type: type[Any] = str, *, instructions: str, **agent_kwargs
-    ) -> Agent[None, Any]:
+        return Tool(spec.fn, takes_ctx=False, name=spec.name, description=spec.description)
+
+    def create_agent(self, request: AgentRunRequest) -> Agent[None, Any]:
         """
-        Create a pydantic-ai Agent configured with this hook's model.
+        Build a pydantic-ai ``Agent`` from *request*.
 
-        :param output_type: The expected output type from the agent (default: ``str``).
-        :param instructions: System-level instructions for the agent.
-        :param agent_kwargs: Additional keyword arguments passed to the Agent constructor.
+        Resolves toolsets and constructs the agent with the model returned by
+        :meth:`get_model`. Durable caching is **not** applied here; use
+        :meth:`execute_agent` for runs that require durable step-caching.
+
+        :param request: Agent configuration — output type, instructions, toolsets, extra params.
         """
-        return Agent(self.get_conn(), output_type=output_type, instructions=instructions, **agent_kwargs)
+        extra_kwargs = dict(request.agent_params or {})
+        if request.toolsets:
+            native_tools = self._resolve_tools(request.toolsets, request.enable_tool_logging, None, None)
+            if native_tools:
+                extra_kwargs["tools"] = native_tools
+        return Agent(
+            self.get_model(),
+            output_type=request.output_type,
+            instructions=request.instructions,
+            **extra_kwargs,
+        )
 
-    def run_agent(
-        self,
-        agent: Agent[None, Any],
-        *,
-        prompt: str,
-        usage_limits: Any = None,
-        message_history: Any = None,
-    ) -> AgentRunResult:
-        """Run a pydantic-ai agent and return a normalized :class:`~airflow.providers.common.ai.hooks.base_ai.AgentRunResult`."""
+    def run_agent(self, agent: Agent[None, Any], request: AgentRunRequest) -> AgentRunResult:
+        """Run *agent* synchronously for *request* and return a normalized :class:`~airflow.providers.common.ai.hooks.base_ai.AgentRunResult`."""
         from pydantic_ai.messages import ToolCallPart
 
-        if message_history is not None:
-            result = agent.run_sync(prompt, message_history=message_history, usage_limits=usage_limits)
-        else:
-            result = agent.run_sync(prompt, usage_limits=usage_limits)
+        run_kwargs: dict[str, Any] = {}
+        if request.message_history is not None:
+            run_kwargs["message_history"] = request.message_history
+        if request.usage_limits is not None:
+            run_kwargs["usage_limits"] = request.usage_limits
+
+        result = agent.run_sync(request.prompt, **run_kwargs)
 
         usage = result.usage()
         tool_names: list[str] = []
@@ -232,6 +246,66 @@ class PydanticAIHook(BaseAIHook):
             tool_names=tool_names or None,
         )
 
+    def execute_agent(self, request: AgentRunRequest) -> AgentRunResult:
+        """
+        Build and run a pydantic-ai agent for *request*.
+
+        Overrides the base template to handle durable step-caching when
+        :attr:`~AgentRunRequest.durable_context` is set. Non-durable runs
+        delegate to the default :meth:`~BaseAIHook.execute_agent` template
+        (which calls :meth:`create_agent` then :meth:`run_agent`).
+        """
+        if request.durable_context is None:
+            return super().execute_agent(request)
+
+        from airflow.providers.common.ai.durable.caching_model import CachingModel
+        from airflow.providers.common.ai.durable.step_counter import DurableStepCounter
+        from airflow.providers.common.ai.durable.storage import DurableStorage
+        from airflow.providers.common.ai.hooks.base_ai import DurableStats
+
+        ctx = request.durable_context
+        storage = DurableStorage(
+            dag_id=ctx.dag_id,
+            task_id=ctx.task_id,
+            run_id=ctx.run_id,
+            map_index=ctx.map_index,
+        )
+        counter = DurableStepCounter()
+
+        extra_kwargs = dict(request.agent_params or {})
+        if request.toolsets:
+            native_tools = self._resolve_tools(
+                request.toolsets,
+                request.enable_tool_logging,
+                storage,
+                counter,
+            )
+            if native_tools:
+                extra_kwargs["tools"] = native_tools
+
+        agent = Agent(
+            self.get_model(),
+            output_type=request.output_type,
+            instructions=request.instructions,
+            **extra_kwargs,
+        )
+
+        if agent.model is None:
+            raise ValueError("Agent model must be set when durable=True")
+        resolved_model = infer_model(agent.model)
+        caching_model = CachingModel(resolved_model, storage=storage, counter=counter)
+        with agent.override(model=caching_model):
+            run_result = self.run_agent(agent, request)
+
+        run_result.durable_stats = DurableStats(
+            replayed_model=counter.replayed_model,
+            replayed_tool=counter.replayed_tool,
+            cached_model=counter.cached_model,
+            cached_tool=counter.cached_tool,
+        )
+        storage.cleanup()
+        return run_result
+
     def test_connection(self) -> tuple[bool, str]:
         """
         Test connection by resolving the model.
@@ -242,7 +316,7 @@ class PydanticAIHook(BaseAIHook):
         connectivity (quotas, billing, rate limits).
         """
         try:
-            self.get_conn()
+            self.get_model()
             return True, "Model resolved successfully."
         except Exception as e:
             return False, str(e)

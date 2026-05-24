@@ -350,6 +350,45 @@ class TestVaultSecrets:
         )
         assert returned_uri == "world"
 
+
+    @conf_vars({("core", "multi_team"): "True"})
+    @mock.patch("airflow.providers.hashicorp._internal_client.vault_client.hvac")
+    def test_get_variable_value_multi_team_does_not_fallback_to_other_team_path(self, mock_hvac, secret_not_found):
+        mock_client = mock.MagicMock()
+        mock_hvac.Client.return_value = mock_client
+        mock_client.secrets.kv.v2.read_secret_version.side_effect = [secret_not_found]
+
+        test_client = VaultBackend(variables_path="variables", mount_point="airflow")
+
+        returned_value = test_client.get_variable("team_b/db_password", team_name="team_a")
+
+        mock_client.secrets.kv.v2.read_secret_version.assert_called_once_with(
+            path="variables/team_a/team_b/db_password",
+            mount_point="airflow",
+            version=None,
+            raise_on_deleted_version=True,
+        )
+        assert returned_value is None
+
+    @conf_vars({("core", "multi_team"): "True"})
+    @mock.patch("airflow.providers.hashicorp._internal_client.vault_client.hvac")
+    def test_get_connection_multi_team_does_not_fallback_to_other_team_path(self, mock_hvac, secret_not_found):
+        mock_client = mock.MagicMock()
+        mock_hvac.Client.return_value = mock_client
+        mock_client.secrets.kv.v2.read_secret_version.side_effect = [secret_not_found]
+
+        test_client = VaultBackend(connections_path="connections", mount_point="airflow")
+
+        returned_connection = test_client.get_connection("team_b/db_password", team_name="team_a")
+
+        mock_client.secrets.kv.v2.read_secret_version.assert_called_once_with(
+            path="connections/team_a/team_b/db_password",
+            mount_point="airflow",
+            version=None,
+            raise_on_deleted_version=True,
+        )
+        assert returned_connection is None
+
     @mock.patch("airflow.providers.hashicorp._internal_client.vault_client.hvac")
     def test_get_variable_value_without_predefined_mount_point(self, mock_hvac):
         mock_client = mock.MagicMock()

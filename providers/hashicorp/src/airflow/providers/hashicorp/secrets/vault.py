@@ -204,20 +204,21 @@ class VaultBackend(BaseSecretsBackend, LoggingMixin):
         """
         Get a secret from a team specific path or the global path.
 
-        If multi team is enabled, check {base_path}/{team_name}/{key}, then fallback to {base_path}/{global_path}/{key} or {base_path}/{key}.
+        If multi team is enabled, check {base_path}/{team_name}/{key}, then fallback to
+        {base_path}/{global_path}/{key} when ``global_secrets_path`` is configured.
         """
         if base_path is None:
             return None
-        if (
-            conf.getboolean("core", "multi_team", fallback=False)
-            and self.use_team_secrets_path
-            and team_name is not None
-        ):
+        is_multi_team = conf.getboolean("core", "multi_team", fallback=False)
+        if is_multi_team and self.use_team_secrets_path and team_name is not None:
             response = self._get_secret_with_base(self.build_path(base_path, team_name), key)
             if response is not None:
                 return response
+            if self.global_secrets_path is None:
+                return None
+
         # Fallback to global secret
-        if conf.getboolean("core", "multi_team", fallback=False) and self.global_secrets_path is not None:
+        if is_multi_team and self.global_secrets_path is not None:
             path = self.build_path(base_path, self.global_secrets_path)
         else:
             path = base_path

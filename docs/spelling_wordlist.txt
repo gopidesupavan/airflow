@@ -824,6 +824,7 @@ init
 initdb
 initialisation
 initialiser
+initialises
 initialising
 initializer
 inout

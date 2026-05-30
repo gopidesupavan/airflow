@@ -332,15 +332,23 @@ class JdbcHook(DbApiHook):
                 # Non-standard JDBC URL we can't reliably parse (e.g. Oracle
                 # SID format ``thin:@host:port:sid``, H2 ``mem:test``).
                 return None
+            # Strip userinfo before handling path, query string, or driver-specific
+            # option separators. Some drivers accept raw delimiters in userinfo;
+            # stripping delimiters first could leave credentials in the authority.
+            after = JdbcHook._strip_openlineage_userinfo(after)
             # Strip path, query string, and driver-specific option separator
             # (e.g. SQL Server uses ``;`` for connection properties).
             for sep in ("/", "?", ";"):
                 after = after.split(sep, 1)[0]
-            # Strip userinfo (some drivers accept ``user:pass@host:port`` in the
-            # URL); we never want credentials leaking into the OL namespace.
-            if "@" in after:
-                after = after.rsplit("@", 1)[-1]
             return after or None
+        host = JdbcHook._strip_openlineage_userinfo(host)
         if connection.port and host:
             return f"{host}:{connection.port}"
         return host or None
+
+    @staticmethod
+    def _strip_openlineage_userinfo(authority: str) -> str:
+        """Remove embedded URL userinfo from an OpenLineage authority candidate."""
+        if "@" in authority:
+            return authority.rsplit("@", 1)[-1]
+        return authority

@@ -599,6 +599,11 @@ class TestJdbcHookOpenLineage:
             # Userinfo embedded in URL (legal for several drivers) is stripped
             # so credentials never leak into the OL namespace
             ("jdbc:postgresql://user:pass@pg-host:5432/mydb", None, "pg-host:5432"),
+            # Strip userinfo before driver-specific option separators so raw
+            # delimiters in credentials are never emitted in the OL namespace.
+            ("jdbc:postgresql://user:secret;ssl=true@pg-host:5432/mydb", None, "pg-host:5432"),
+            # Plain host fallback should also strip embedded userinfo.
+            ("user:secret@plain-host", 5432, "plain-host:5432"),
             # ``jdbc:`` prefix is case-insensitive per the JDBC spec
             ("JDBC:postgresql://pg-host:5432/mydb", None, "pg-host:5432"),
         ],
